@@ -574,6 +574,17 @@ var PLAYERS=PLAYERS_GK;
 // ═══════════════════════════════════════════════════
 function ld(k){try{return JSON.parse(localStorage.getItem("gcwc26_"+k))||null;}catch(e){return null;}}
 function sv(k,v){try{localStorage.setItem("gcwc26_"+k,JSON.stringify(v));}catch(e){}}
+function maskEmail(email){
+  if(!email||email.indexOf('@')<0)return email;
+  var parts=email.split('@');
+  var name=parts[0];
+  var domain=parts[1];
+  var visible=name.length>2?name.slice(0,2):name.slice(0,1);
+  var stars='*'.repeat(Math.min(name.length-visible.length,5));
+  var dparts=domain.split('.');
+  var dvis=dparts[0].slice(0,2)+'***';
+  return visible+stars+'@'+dvis+'.'+dparts.slice(1).join('.');
+}
 var ADMIN_EMAIL    = "admin@gamechangers.com";
 var ADMIN_PASSWORD = "Legend@7707";
 function initDB(){
@@ -703,8 +714,80 @@ function sendResetEmail(toEmail, token, onDone){
   }).catch(function(e){ console.error('Reset email error:',e); onDone(false); });
 }
 
-// Send admin notification email
-function sendAdminNotification(subject, message){
+var ADMIN_NOTIFY_EMAIL = "gamechangers.svs@gmail.com";
+
+// Log an admin event to localStorage
+function logAdminEvent(type, data){
+  var logs = ld('adminLogs') || [];
+  logs.push(Object.assign({type: type}, data));
+  sv('adminLogs', logs);
+  // Check if we should send summary now (noon Bangkok = UTC+7 = 05:00 UTC)
+  checkDailySummary();
+}
+
+// Check if daily summary should fire (noon Bangkok time = 05:00 UTC)
+function checkDailySummary(){
+  var now = new Date();
+  var bangkokHour = (now.getUTCHours() + 7) % 24;
+  var todayStr = now.toISOString().slice(0,10);
+  var lastSent = ld('adminLastSummary') || '';
+  // Fire if it's noon Bangkok (hour 12) and not yet sent today
+  if(bangkokHour >= 12 && lastSent !== todayStr){
+    var logs = ld('adminLogs') || [];
+    if(logs.length > 0){
+      sendDailySummary(logs, todayStr);
+    }
+  }
+}
+
+// Build and send the daily summary email
+function sendDailySummary(logs, todayStr){
+  // Mark as sent immediately to prevent duplicate sends
+  sv('adminLastSummary', todayStr);
+
+  var regs    = logs.filter(function(l){ return l.type === 'registration'; });
+  var preds   = logs.filter(function(l){ return l.type === 'prediction'; });
+  var grands  = logs.filter(function(l){ return l.type === 'grand'; });
+
+  var msg = 'GAME CHANGERS — DAILY SUMMARY\n';
+  msg += 'Date: ' + todayStr + '\n';
+  msg += '════════════════════════════════\n\n';
+
+  // New Registrations
+  msg += '👤 NEW REGISTRATIONS (' + regs.length + ')\n';
+  msg += '────────────────────────────────\n';
+  if(regs.length === 0){
+    msg += 'No new registrations today.\n';
+  } else {
+    regs.forEach(function(r, i){
+      msg += (i+1) + '. ' + r.name + ' | ' + r.email + '\n';
+    });
+  }
+
+  msg += '\n📋 MATCH PREDICTIONS (' + preds.length + ')\n';
+  msg += '────────────────────────────────\n';
+  if(preds.length === 0){
+    msg += 'No match predictions today.\n';
+  } else {
+    preds.forEach(function(p, i){
+      msg += (i+1) + '. ' + p.name + ' → ' + p.match + ' (Group ' + p.group + ')\n';
+    });
+  }
+
+  msg += '\n🏆 GRAND PREDICTIONS (' + grands.length + ')\n';
+  msg += '────────────────────────────────\n';
+  if(grands.length === 0){
+    msg += 'No grand predictions today.\n';
+  } else {
+    grands.forEach(function(g, i){
+      msg += (i+1) + '. ' + g.name + ' → ' + g.category + ': ' + g.picked + '\n';
+    });
+  }
+
+  msg += '\n════════════════════════════════\n';
+  msg += 'Total activity today: ' + logs.length + ' event(s)\n';
+  msg += 'Game Changers Admin Summary';
+
   fetch('https://api.emailjs.com/api/v1.0/email/send',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -713,16 +796,28 @@ function sendAdminNotification(subject, message){
       template_id: EMAILJS_TEMPLATE_ID,
       user_id: EMAILJS_PUBLIC_KEY,
       template_params:{
-        to_email: ADMIN_EMAIL,
+        to_email: ADMIN_NOTIFY_EMAIL,
         to_name: 'Admin',
         verify_code: '',
-        message: message
+        message: msg
       }
     })
   }).then(function(r){
-    if(r.ok){ console.log('Admin notified:', subject); }
-    else{ r.text().then(function(t){ console.warn('Admin notify failed:',r.status,t); }); }
-  }).catch(function(e){ console.warn('Admin notify error:',e.message); });
+    if(r.ok){
+      console.log('Daily summary sent to', ADMIN_NOTIFY_EMAIL);
+      // Clear the logs after successful send
+      sv('adminLogs', []);
+    } else {
+      r.text().then(function(t){
+        console.warn('Summary send failed:',r.status,t);
+        // Reset sent flag so it retries
+        sv('adminLastSummary','');
+      });
+    }
+  }).catch(function(e){
+    console.warn('Summary send error:',e.message);
+    sv('adminLastSummary','');
+  });
 }
 var cdTimers={};
 
@@ -1010,16 +1105,7 @@ function authPage(){
       sv('users',[].concat(users,[nu]));
       ss({pg:'app',user:nu,tab:'home',err:'',fd:{},modal:null,verifyPending:null});
       toast('🎉 Welcome to Game Changers, '+vp2.name+'!');
-      sendAdminNotification('New User Registered',
-        'NEW USER REGISTRATION\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Name    : ' + vp2.name + '\n' +
-        'Email   : ' + vp2.email + '\n' +
-        'Joined  : ' + new Date().toLocaleString() + '\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Total users now: ' + (users.length + 1) + '\n\n' +
-        'Game Changers Admin Alert'
-      );
+      logAdminEvent('registration', {name: vp2.name, email: vp2.email, time: new Date().toISOString()});
     };
     vbox.appendChild(verifyBtn);
     var resendBtn=document.createElement('button');resendBtn.className='verify-resend';resendBtn.textContent='Resend code';
@@ -1429,18 +1515,7 @@ function renderModal(){
       p[S.user.id+'_'+m.id]=Object.assign({},ANS);
       sv('preds',p);
       toast('✓ Prediction saved!');
-      sendAdminNotification('Match Prediction Submitted',
-        'MATCH PREDICTION SUBMITTED\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        'User    : ' + S.user.name + '\n' +
-        'Email   : ' + S.user.email + '\n' +
-        'Match   : ' + m.h + ' vs ' + m.a + '\n' +
-        'Group   : ' + m.g + '\n' +
-        'Match ID: #' + m.id + '\n' +
-        'Time    : ' + new Date().toLocaleString() + '\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        'Game Changers Admin Alert'
-      );
+      logAdminEvent('prediction', {name: S.user.name, email: S.user.email, match: m.h+' vs '+m.a, group: m.g, time: new Date().toISOString()});
     } else {
       var r=ld('results')||{};
       r[m.id]=Object.assign({},ANS);
@@ -1691,17 +1766,7 @@ function grandPage(){
       gps[u.id][g.id]=e.target.value;
       sv('grand',gps);
       ss({});
-      sendAdminNotification('Grand Prediction Updated',
-        'GRAND PREDICTION UPDATED\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        'User      : ' + u.name + '\n' +
-        'Email     : ' + u.email + '\n' +
-        'Category  : ' + g.ic + ' ' + g.l + '\n' +
-        'Picked    : ' + e.target.value + '\n' +
-        'Time      : ' + new Date().toLocaleString() + '\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        'Game Changers Admin Alert'
-      );
+      logAdminEvent('grand', {name: u.name, email: u.email, category: g.ic+' '+g.l, picked: e.target.value, time: new Date().toISOString()});
     };
     gc.appendChild(sel);
     if(tm&&tm.f){var prev=h('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginTop:'9px'}});prev.appendChild(h('span',{style:{fontSize:'22px'}},tm.f));prev.appendChild(h('span',{style:{fontFamily:"'DM Mono',monospace",fontSize:'11px',color:'var(--sub)',letterSpacing:'1px'}},tm.c));prev.appendChild(h('span',{style:{fontSize:'13px',color:'var(--txt)'}},val));gc.appendChild(prev);}
@@ -1776,7 +1841,7 @@ function boardPage(){
   lb.forEach(function(p,i){
     var tr=h('tr',null);if(p.id===u.id)tr.className='lb-me';var sc=p.tot;
     tr.appendChild(h('td',null,medals[i]||(i+1)+'.'));
-    var ptd=h('td',null);var pd=h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});pd.appendChild(h('span',{style:{fontSize:'19px'}},p.av||'⚽'));var nm=h('div',null);nm.appendChild(h('div',{style:{fontSize:'13px',fontWeight:p.id===u.id?'700':'400',color:p.id===u.id?'var(--acc)':'var(--txt)'}},p.name));nm.appendChild(h('div',{style:{fontSize:'10px',color:'var(--dim)'}},p.email));pd.appendChild(nm);ptd.appendChild(pd);tr.appendChild(ptd);
+    var ptd=h('td',null);var pd=h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});pd.appendChild(h('span',{style:{fontSize:'19px'}},p.av||'⚽'));var nm=h('div',null);nm.appendChild(h('div',{style:{fontSize:'13px',fontWeight:p.id===u.id?'700':'400',color:p.id===u.id?'var(--acc)':'var(--txt)'}},p.name));nm.appendChild(h('div',{style:{fontSize:'10px',color:'var(--dim)'}},maskEmail(p.email)));pd.appendChild(nm);ptd.appendChild(pd);tr.appendChild(ptd);
     [p.pc,p.cor,p.wrg].forEach(function(v,vi){var td2=h('td',null);var sp=h('span',{style:{fontFamily:"'DM Mono',monospace",fontWeight:'700',color:['var(--acc)','var(--grn)','var(--red)'][vi]}},String(v));td2.appendChild(sp);tr.appendChild(td2);});
     var std=h('td',null);std.appendChild(scoreTag(sc));tr.appendChild(std);tbody.appendChild(tr);
   });
@@ -1858,7 +1923,7 @@ function usersPage(){
     var sc=getScore(u.id),mp=Object.keys(preds).filter(function(k){return k.indexOf(u.id+'_')===0;}).length,gpc=Object.keys((grand[u.id]||{})).length;
     var row=card('',{padding:'12px 16px',display:'flex',alignItems:'center',gap:'12px',marginBottom:'8px'});
     row.appendChild(h('span',{style:{fontSize:'24px'}},u.av||'⚽'));
-    var inf=h('div',{style:{flex:'1'}});inf.appendChild(h('div',{style:{fontWeight:'700',fontSize:'13px',color:'var(--txt)'}},u.name));inf.appendChild(h('div',{style:{fontSize:'11px',color:'var(--sub)',marginTop:'2px'}},u.email));row.appendChild(inf);
+    var inf=h('div',{style:{flex:'1'}});inf.appendChild(h('div',{style:{fontWeight:'700',fontSize:'13px',color:'var(--txt)'}},u.name));inf.appendChild(h('div',{style:{fontSize:'11px',color:'var(--sub)',marginTop:'2px'}},S.user&&S.user.role==='admin'?u.email:maskEmail(u.email)));row.appendChild(inf);
     [[mp,'Matches','var(--acc)'],[gpc,'Grand','var(--pur)']].forEach(function(it){var e=h('div',{style:{textAlign:'center',minWidth:'50px'}});e.appendChild(h('div',{style:{fontSize:'11px',color:'var(--dim)'}},it[0]));var vd=h('div',{style:{fontFamily:"'DM Mono',monospace",fontWeight:'700',color:it[2]}},it[1]);e.appendChild(vd);row.appendChild(e);});
     row.appendChild(scoreTag(sc.tot));wrap.appendChild(row);
   });
@@ -1869,6 +1934,9 @@ function usersPage(){
 // BOOT
 // ═══════════════════════════════════════════════════
 initDB();render();
+// Check daily summary on load and every 30 minutes
+checkDailySummary();
+setInterval(checkDailySummary, 30 * 60 * 1000);
 </script>
 </body>
 </html>
