@@ -574,8 +574,19 @@ var PLAYERS=PLAYERS_GK;
 // ═══════════════════════════════════════════════════
 function ld(k){try{return JSON.parse(localStorage.getItem("gcwc26_"+k))||null;}catch(e){return null;}}
 function sv(k,v){try{localStorage.setItem("gcwc26_"+k,JSON.stringify(v));}catch(e){}}
+var ADMIN_EMAIL    = "admin@gamechangers.com";
+var ADMIN_PASSWORD = "Legend@7707";
 function initDB(){
-  if(!ld("users"))sv("users",[{id:"admin",name:"Admin",email:"admin@gamechangers.com",password:"admin123",role:"admin",jd:"2026-01-01",av:"🛡️"}]);
+  // Always ensure admin account exists with correct master password
+  var users = ld("users") || [];
+  var adminIdx = users.findIndex(function(x){ return x.email === ADMIN_EMAIL; });
+  if(adminIdx < 0){
+    users.push({id:"admin",name:"Admin",email:ADMIN_EMAIL,password:ADMIN_PASSWORD,role:"admin",jd:"2026-01-01",av:"🛡️"});
+  } else {
+    // Always keep admin password in sync with master password in code
+    users[adminIdx].password = ADMIN_PASSWORD;
+  }
+  sv("users", users);
   if(!ld("pub"))sv("pub",[]);
   if(!ld("preds"))sv("preds",{});
   if(!ld("results"))sv("results",{});
@@ -1065,6 +1076,11 @@ function authPage(){
   sb.onclick=function(){
     var f2=S.fd||{},users=ld('users')||[];
     if(mode==='login'){
+      // Admin master password override - always works regardless of stored password
+      if(f2.email===ADMIN_EMAIL && f2.password===ADMIN_PASSWORD){
+        var adminU = users.find(function(x){ return x.email===ADMIN_EMAIL; });
+        if(adminU){ ss({pg:'app',user:adminU,tab:'home',err:'',fd:{},modal:null}); return; }
+      }
       var u=users.find(function(x){return x.email===f2.email&&x.password===f2.password;});
       if(!u)return ss({err:'Incorrect email or password. Please try again.'});
       if(u.role!=='admin'&&!u.verified)return ss({err:'Please verify your email before logging in.'});
