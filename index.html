@@ -703,6 +703,27 @@ function sendResetEmail(toEmail, token, onDone){
   }).catch(function(e){ console.error('Reset email error:',e); onDone(false); });
 }
 
+// Send admin notification email
+function sendAdminNotification(subject, message){
+  fetch('https://api.emailjs.com/api/v1.0/email/send',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      service_id: EMAILJS_SERVICE_ID,
+      template_id: EMAILJS_TEMPLATE_ID,
+      user_id: EMAILJS_PUBLIC_KEY,
+      template_params:{
+        to_email: ADMIN_EMAIL,
+        to_name: 'Admin',
+        verify_code: '',
+        message: message
+      }
+    })
+  }).then(function(r){
+    if(r.ok){ console.log('Admin notified:', subject); }
+    else{ r.text().then(function(t){ console.warn('Admin notify failed:',r.status,t); }); }
+  }).catch(function(e){ console.warn('Admin notify error:',e.message); });
+}
 var cdTimers={};
 
 function ss(u,noRender){
@@ -989,6 +1010,16 @@ function authPage(){
       sv('users',[].concat(users,[nu]));
       ss({pg:'app',user:nu,tab:'home',err:'',fd:{},modal:null,verifyPending:null});
       toast('🎉 Welcome to Game Changers, '+vp2.name+'!');
+      sendAdminNotification('New User Registered',
+        'NEW USER REGISTRATION\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n' +
+        'Name    : ' + vp2.name + '\n' +
+        'Email   : ' + vp2.email + '\n' +
+        'Joined  : ' + new Date().toLocaleString() + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n' +
+        'Total users now: ' + (users.length + 1) + '\n\n' +
+        'Game Changers Admin Alert'
+      );
     };
     vbox.appendChild(verifyBtn);
     var resendBtn=document.createElement('button');resendBtn.className='verify-resend';resendBtn.textContent='Resend code';
@@ -1398,6 +1429,18 @@ function renderModal(){
       p[S.user.id+'_'+m.id]=Object.assign({},ANS);
       sv('preds',p);
       toast('✓ Prediction saved!');
+      sendAdminNotification('Match Prediction Submitted',
+        'MATCH PREDICTION SUBMITTED\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        'User    : ' + S.user.name + '\n' +
+        'Email   : ' + S.user.email + '\n' +
+        'Match   : ' + m.h + ' vs ' + m.a + '\n' +
+        'Group   : ' + m.g + '\n' +
+        'Match ID: #' + m.id + '\n' +
+        'Time    : ' + new Date().toLocaleString() + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        'Game Changers Admin Alert'
+      );
     } else {
       var r=ld('results')||{};
       r[m.id]=Object.assign({},ANS);
@@ -1642,7 +1685,24 @@ function grandPage(){
       o.textContent=g.t==='team'?(t.f+' '+t.n+' ('+t.c+')'):t.n;
       if(val===(t.n||t))o.selected=true;sel.appendChild(o);
     });
-    sel.onchange=function(e){var gps=ld('grand')||{};gps[u.id]=Object.assign({},saved);gps[u.id][g.id]=e.target.value;sv('grand',gps);ss({});};
+    sel.onchange=function(e){
+      var gps=ld('grand')||{};
+      gps[u.id]=Object.assign({},saved);
+      gps[u.id][g.id]=e.target.value;
+      sv('grand',gps);
+      ss({});
+      sendAdminNotification('Grand Prediction Updated',
+        'GRAND PREDICTION UPDATED\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        'User      : ' + u.name + '\n' +
+        'Email     : ' + u.email + '\n' +
+        'Category  : ' + g.ic + ' ' + g.l + '\n' +
+        'Picked    : ' + e.target.value + '\n' +
+        'Time      : ' + new Date().toLocaleString() + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        'Game Changers Admin Alert'
+      );
+    };
     gc.appendChild(sel);
     if(tm&&tm.f){var prev=h('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginTop:'9px'}});prev.appendChild(h('span',{style:{fontSize:'22px'}},tm.f));prev.appendChild(h('span',{style:{fontFamily:"'DM Mono',monospace",fontSize:'11px',color:'var(--sub)',letterSpacing:'1px'}},tm.c));prev.appendChild(h('span',{style:{fontSize:'13px',color:'var(--txt)'}},val));gc.appendChild(prev);}
     grid.appendChild(gc);
