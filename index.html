@@ -181,7 +181,7 @@ nav button:hover:not(.active){color:var(--txt)}
 .reset-back:hover{color:var(--acc)}
 
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- EmailJS library removed - using REST API directly -->
 <script>
 // ============================================================
 // EMAILJS CONFIGURATION
@@ -196,10 +196,7 @@ var EMAILJS_TEMPLATE_ID   = "wxhvndc";
 // 2. Replace PASTE_YOUR_TEMPLATE_ID_HERE with your Template ID
 //    -> emailjs.com -> Email Templates -> copy the ID
 // ============================================================
-(function(){
-  try{emailjs.init({publicKey: EMAILJS_PUBLIC_KEY});}
-  catch(e){console.log("EmailJS not loaded yet");}
-})();
+// EmailJS initialised via REST API - no library init needed
 </script>
 </head>
 <body>
@@ -644,34 +641,55 @@ function genToken(){return String(Math.floor(100000+Math.random()*900000));}
 function sendVerifyEmail(toEmail, toName, token, onDone){
   var body = 'Hi '+toName+',\n\nYour Game Changers verification code is:\n\n'
     + token + '\n\nThis code expires in 15 minutes.\n\nIf you did not request this, please ignore.\n\nGame Changers Team';
-  // Try EmailJS first
-  try{
-    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID,{
-      to_email: toEmail,
-      to_name: toName,
-      verify_code: token,
-      message: body
-    }).then(function(){
-      onDone(true);
-    }, function(){
-      // EmailJS not configured — use mailto fallback
-      onDone(false);
-    });
-  } catch(e){
+  fetch('https://api.emailjs.com/api/v1.0/email/send',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      service_id: EMAILJS_SERVICE_ID,
+      template_id: EMAILJS_TEMPLATE_ID,
+      user_id: EMAILJS_PUBLIC_KEY,
+      template_params:{
+        to_email: toEmail,
+        to_name: toName,
+        verify_code: token,
+        message: body
+      }
+    })
+  }).then(function(r){
+    if(r.ok){ onDone(true); }
+    else{
+      r.text().then(function(t){
+        console.error('EmailJS REST failed:',r.status,t);
+        window._ejsErr='HTTP '+r.status+': '+t;
+        onDone(false);
+      });
+    }
+  }).catch(function(e){
+    console.error('EmailJS fetch error:',e);
+    window._ejsErr='Fetch error: '+e.message;
     onDone(false);
-  }
+  });
 }
 // Send password reset email
 function sendResetEmail(toEmail, token, onDone){
-  var resetLink = 'Your password reset code is: ' + token + ' (expires in 15 minutes)';
-  try{
-    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID,{
-      to_email: toEmail,
-      to_name: toEmail,
-      verify_code: token,
-      message: 'Password Reset Request\n\n' + resetLink + '\n\nIf you did not request this, please ignore this email.\n\nGame Changers Team'
-    }).then(function(){onDone(true);}, function(){onDone(false);});
-  } catch(e){ onDone(false); }
+  fetch('https://api.emailjs.com/api/v1.0/email/send',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      service_id: EMAILJS_SERVICE_ID,
+      template_id: EMAILJS_TEMPLATE_ID,
+      user_id: EMAILJS_PUBLIC_KEY,
+      template_params:{
+        to_email: toEmail,
+        to_name: toEmail,
+        verify_code: token,
+        message: 'Password Reset Request\n\nYour reset code is: '+token+' (expires in 15 minutes)\n\nIf you did not request this, please ignore this email.\n\nGame Changers Team'
+      }
+    })
+  }).then(function(r){
+    if(r.ok){ onDone(true); }
+    else{ r.text().then(function(t){ console.error('Reset email failed:',r.status,t); onDone(false); }); }
+  }).catch(function(e){ console.error('Reset email error:',e); onDone(false); });
 }
 
 var cdTimers={};
@@ -1064,7 +1082,11 @@ function authPage(){
       ss({verifyPending:vp,pg:'verify',err:'',fd:{code:''}},true);
       sendVerifyEmail(vp.email,vp.name,token,function(sent){
         if(sent){render();toast('Verification email sent!');}
-        else{render();setTimeout(function(){toast('Demo mode — verification code: '+token,'#f97316');ss({msg:'📋 Demo mode — your code: '+token+' (expires in 15 min)'},false);},300);}
+        else{render();setTimeout(function(){
+          var ejsErr = window._ejsErr ? '<br><small style="opacity:0.7">EmailJS error: '+window._ejsErr+'</small>' : '';
+          toast('Email failed — using demo code: '+token,'#f97316');
+          ss({msg:'📋 Demo mode — your code: '+token+' (expires in 15 min)'+ejsErr},false);
+        },300);}
       });
     }
   };
