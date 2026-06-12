@@ -1750,11 +1750,19 @@ function profilePage(){
   addF('CURRENT PASSWORD','password','password','Required to save changes');addF('NEW PASSWORD','newPwd','password','Leave blank to keep current');addF('CONFIRM NEW','confirmPwd','password','Confirm new password');
   var sb=h('button',{cls:'btn btn-primary',style:{width:'100%',padding:'11px',marginTop:'16px',fontSize:'13px'}});sb.textContent='Save Changes';
   sb.onclick=function(){
-    var fd=S.profileFd||{};if(!fd.name)return ss({err:'Name required.'});if(fd.newPwd&&fd.newPwd!==fd.confirmPwd)return ss({err:'Passwords do not match.'});
+    var fd=S.profileFd||{};
+    if(!fd.name)return ss({err:'Name required.'});
+    if(fd.newPwd&&fd.newPwd!==fd.confirmPwd)return ss({err:'Passwords do not match.'});
+    if(fd.newPwd&&fd.newPwd.length<8)return ss({err:'New password must be at least 8 characters.'});
     var users=ld('users')||[];var idx=users.findIndex(function(x){return x.id===u.id;});
-    if(fd.password&&users[idx].password!==fd.password)return ss({err:'Current password incorrect.'});
+    if(idx<0)return ss({err:'Account not found.'});
+    if(fd.newPwd){
+      if(!fd.password)return ss({err:'Please enter your current password to change it.'});
+      if(users[idx].password!==fd.password)return ss({err:'Current password incorrect.'});
+      users[idx].password=fd.newPwd;
+    }
     users[idx]=Object.assign({},users[idx],{name:fd.name,email:fd.email,av:fd.av||u.av});
-    if(fd.newPwd)users[idx].password=fd.newPwd;sv('users',users);
+    sv('users',users);
     ss({user:users[idx],msg:'✓ Profile updated!',err:'',profileFd:{name:users[idx].name,email:users[idx].email,av:users[idx].av}});
   };right.appendChild(sb);
   var ob3=h('button',{cls:'btn btn-danger',style:{width:'100%',padding:'11px',marginTop:'9px',fontSize:'13px'}});ob3.textContent='Sign Out';ob3.onclick=function(){ss({pg:'auth',user:null,fd:{},mode:'login',tab:'home',modal:null,profileFd:null});};right.appendChild(ob3);
