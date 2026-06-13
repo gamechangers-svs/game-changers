@@ -738,6 +738,15 @@ function initDB(){
     // Always keep admin password in sync with master password in code
     users[adminIdx].password = ADMIN_PASSWORD;
   }
+  // Auto-verify any user who already has predictions saved (clearly registered before)
+  var preds = ld("preds") || {};
+  var predKeys = Object.keys(preds);
+  users.forEach(function(u, i){
+    if(!u.verified && u.role !== 'admin'){
+      var hasPreds = predKeys.some(function(k){ return k.indexOf(u.id+'_') === 0; });
+      if(hasPreds){ users[i].verified = true; }
+    }
+  });
   sv("users", users);
   if(!ld("pub"))sv("pub",[]);
   if(!ld("preds"))sv("preds",{});
@@ -1350,7 +1359,7 @@ function authPage(){
       }
       var u=users.find(function(x){return x.email===(f2.email||'').trim().toLowerCase()&&x.password===(f2.password||'').trim();});
       if(!u)return ss({err:'Incorrect email or password. Please try again.'});
-      if(u.role!=='admin'&&!u.verified)return ss({err:'Please verify your email before logging in.'});
+      if(u.role!=='admin'&&!u.verified)return ss({err:'Your email is not yet verified. Please check your inbox for the verification code, or contact the admin to activate your account.'});
       ss({pg:'app',user:u,tab:'home',err:'',fd:{},modal:null});
     } else {
       if(!f2.name||!f2.name.trim())return ss({err:'Please enter your full name.'});
@@ -2082,7 +2091,29 @@ function usersPage(){
     var sc=getScore(u.id),mp=Object.keys(preds).filter(function(k){return k.indexOf(u.id+'_')===0;}).length,gpc=Object.keys((grand[u.id]||{})).length;
     var row=card('',{padding:'12px 16px',display:'flex',alignItems:'center',gap:'12px',marginBottom:'8px'});
     row.appendChild(h('span',{style:{fontSize:'24px'}},u.av||'⚽'));
-    var inf=h('div',{style:{flex:'1'}});inf.appendChild(h('div',{style:{fontWeight:'700',fontSize:'13px',color:'var(--txt)'}},u.name));inf.appendChild(h('div',{style:{fontSize:'11px',color:'var(--sub)',marginTop:'2px'}},S.user&&S.user.role==='admin'?u.email:maskEmail(u.email)));row.appendChild(inf);
+    var inf=h('div',{style:{flex:'1'}});inf.appendChild(h('div',{style:{fontWeight:'700',fontSize:'13px',color:'var(--txt)'}},u.name));inf.appendChild(h('div',{style:{fontSize:'11px',color:'var(--sub)',marginTop:'2px'}},S.user&&S.user.role==='admin'?u.email:maskEmail(u.email)));
+    // Show unverified badge + Force Verify button for admin
+    if(S.user&&S.user.role==='admin'&&!u.verified&&u.role!=='admin'){
+      var unvBadge=h('div',{style:{fontSize:'10px',color:'#f97316',marginTop:'3px'}});
+      unvBadge.textContent='⚠ Unverified';
+      inf.appendChild(unvBadge);
+    }
+    row.appendChild(inf);
+    if(S.user&&S.user.role==='admin'&&!u.verified&&u.role!=='admin'){
+      var fvBtn=h('button',{style:{fontSize:'10px',padding:'4px 8px',borderRadius:'6px',border:'1px solid #f97316',background:'rgba(249,115,22,0.1)',color:'#f97316',cursor:'pointer',marginLeft:'auto',whiteSpace:'nowrap'}});
+      fvBtn.textContent='✓ Force Verify';
+      fvBtn.onclick=function(){
+        var users=ld('users')||[];
+        var ui=users.findIndex(function(x){return x.id===u.id;});
+        if(ui>=0){
+          users[ui].verified=true;
+          sv('users',users);
+          toast('✓ '+u.name+' verified successfully!','#22c55e');
+          ss({});
+        }
+      };
+      row.appendChild(fvBtn);
+    }
     [[mp,'Matches','var(--acc)'],[gpc,'Grand','var(--pur)']].forEach(function(it){var e=h('div',{style:{textAlign:'center',minWidth:'50px'}});e.appendChild(h('div',{style:{fontSize:'11px',color:'var(--dim)'}},it[0]));var vd=h('div',{style:{fontFamily:"'DM Mono',monospace",fontWeight:'700',color:it[2]}},it[1]);e.appendChild(vd);row.appendChild(e);});
     row.appendChild(scoreTag(sc.tot));wrap.appendChild(row);
   });
