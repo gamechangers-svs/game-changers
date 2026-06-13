@@ -674,6 +674,11 @@ function sv(k,v){
 // Pull ALL cloud data into localStorage then call cb()
 function pullCloud(cb){
   if(!FIREBASE_URL||FIREBASE_URL.indexOf("PASTE_")>=0){_cloudReady=false;if(cb)cb();return;}
+  // Timeout after 6 seconds - don't let Firebase block the app from loading
+  var _cbCalled=false;
+  var _timeout=setTimeout(function(){
+    if(!_cbCalled){_cbCalled=true;console.warn("Firebase timeout - loading from local data");if(cb)cb();}
+  },6000);
   fetch(FIREBASE_URL+"/gcwc26.json")
     .then(function(r){
       if(!r.ok){ console.warn("Firebase HTTP error:",r.status); return null; }
@@ -692,12 +697,14 @@ function pullCloud(cb){
         console.warn("Firebase error:", data.error);
       }
       _cloudReady=true;
-      if(cb)cb();
+      clearTimeout(_timeout);
+      if(!_cbCalled){_cbCalled=true;if(cb)cb();}
     })
     .catch(function(e){
       console.warn("Cloud pull failed:",e.message);
       _cloudReady=false;
-      if(cb)cb();
+      clearTimeout(_timeout);
+      if(!_cbCalled){_cbCalled=true;if(cb)cb();}
     });
 }
 
@@ -728,6 +735,58 @@ function maskEmail(email){
 }
 var ADMIN_EMAIL    = "admin@gamechangers.com";
 var ADMIN_PASSWORD = "Legend@7707";
+
+var FLAGS = {
+  'Algeria': 'data:image/webp;base64,UklGRmwBAABXRUJQVlA4IGABAADQBwCdASo8ACgAPm0wlUakIyIhKrgKAIANiWQAPkBtgM8z4ADpIv2w9GJ4gMeqyeKJ2y42KqMif6LmLEyVJBj/ZcHGCQjmgAD+7L0P//taH/+zu//6d3+QG+e36Oj/gDp9tltf3/F8BCA+ZZR16u93/Aydt/JPrba03tjjgfX/JuMf9yc8xds6+GP///ikn/urN9bkWqYj6uE6hnUE66dmAKeFRXjhjZwWgst+Hud1YgZRyAVPCxNEEiQ/DL98JoYDgXYw5CIaR2nSSSxD0zo73DFrF1YbW6oh67J69frDKJaF7be8nP/KVd/hEKQF7NPUGt3T9N0X5tGFPpz83/7AP8lBx/8wH9a73irqf1Q6Owl/omWOhA+CpedGgMrn6rGsFF9FEsa5wHmZdLG/C74qP0g194v6fmSl4W+Yr/zcTU/b+Ziv+YDZVjrRJ0Xv5qZnajfxH4wDFkwjAMWS4QAA',
+  'Argentina': 'data:image/webp;base64,UklGRq4BAABXRUJQVlA4IKIBAABQCgCdASo8ACgAPm0ukkYkIqIhKrQN+IANiWQAwn4cfqurY8zppupL+oH8AusWx/0eCuAlQPapO11M55Y98wCvZ4933BQVbKRmcNcocfBOmExyJStq37P1/F8wAP7fIM9/mJyRWppobeAjBzhvmbBvLgAILE3BCz6eoZ2Pyy1a+b2iKKzBH1IxGrQaRWXDqyDMLmqZ98+p047kqDCNo55WzIx43huaTO44QJlLOkNoHaADtB0977dG6upVRFuve4fJPe87AqEnYzo0OIfPOsyup9onBxcCLaVDCTSdUoU4lGnWVMErK764ucRnamINxO6S3Ud6Eo1RFFkGMyZ+DaB6R3tMpc1E1fh+zzQg0pWgrMcXPOv6XkhGyq7N/RHe28MuC7Vv7lWtMRncnxruoJEFifQe058QVffBTvm/oqkZ6rTWC+WkRSGE2AD7gVGtPfnvOptAExK6sFJDLqyDbU5Po8I081Sffel5TVSnXvVm0D/f1d0O0NxaQRDej+MLyCc1GBIalK5z1+wgEFkFSuEQ5CcwFvQXacIObekpJ38uQAAA',
+  'Australia': 'data:image/webp;base64,UklGRkQDAABXRUJQVlA4IDgDAADwEACdASo8ACgAPm0wkUYkIyGhKrgO+IANiWwAtRgVK3+98RPZbbH+YDoS+SB1h/oV+Wt7HP7b/s7YTeT4PqvvHCDtMY0n/H2zXFf57mcr6J9gT+Uf1T/aesB67/QzCmNkMTIP+oqnn6K3SY3xsBXRt2VHFWy6QDAP8M2r3mCcka6tsMhaCZp7OAr8eo2+TGQA/reF6faeM/CP64XCFD+OSYpYBUzDlwzjbX84+vUBVwsy2Oy5P+AD158ffOmRzzant1fTaJWiol2Pv4wpUh2eAD/d57vG1wwoBEvL03sTZMrW5xWiTUdHq77LaTu/mTXxyHA3C3UgjoeRw/yygfiJbQ4L2+4m0tJQ3hdwuGlof/lHz3ta/hxfWbLr/w8Wuku2hWaFvR1tUTa8Q38Dpi02LXd5zhLX0WK8LuooyhRBx/l3Di1yfuN0VYH+lGxJ1crqazjcFiductTZ2/zQK/ZJEVgI8ZREc1GoY87gCW0ASBFB/yz71T6eSRN/V1CG28YURkQ0f/b+A6l3DM5DVOGgPqx9yFdwCy8Av8uTRoV1g6SRTQvZ5JY22qJ4TDXfEmYveVmcgIqtDn/38f9b4/OTWV572hB22MvvND+RXSaW1+Sbr1pn/qkm9lWpfAlvlJ2mNp7tIhiFgNH5aVgs5rPw8vHeumqIwM+S8Q21Jf22nQbOxGO0SrZWs6fMDxs85vXk/8OaxuR5j5/RpzfN3gIH+QB/4W/1vWxvMskHZTnqsyV/X4hR2xgqr20gEaPAuTeDPnxceWsF8vZRtLdGuzpC2fh3JCpDMoMthhxb9+1D3al7pJ8l8aKt0/dMUdOQztTireFEnX+ZSgtDbGjt8UtXSIuEHpy8YEL7fDBX2PXb0cYaqIN+Xwh4YYI25WxfpAi4qcmDDkdSkMYLKjDqlI/Mtw46sc/vCKSQ21C8jVThjRCIhO10HoTDx3vF0cJa57j0ISlGf4PCRZjYqeeUhzXt+gHPWbMggW1ff7ZTZaB2ge0f3/5iXI00l83UC5s+smrI92rXZvnryCZHkeX8B08nUeAtPltIn2qlF/VJoD8xpkUroTzL8p3Zsn5PQ8LDnpCrOlxtRoAAAA==',
+  'Austria': 'data:image/webp;base64,UklGRqQAAABXRUJQVlA4IJgAAADwBQCdASo8ACgAPmUmj0WkIiEapABABkSyAGORUD8VZYB/gMAA9/8CgsOAjQ6biaK9AGHYGmCxgAD+93F+/hKf9p9GeP//iz5z1G9actYD/+BO/gTv0Joj4fP75ky4eOn0lThZQTAH/DgqwIG/z70ZQ4ScmB3ycvhYb/OKlXc1vqBEfcXHJkWWAPfzrkMh+wQuRINWfwAAAA==',
+  'Belgium': 'data:image/webp;base64,UklGRu4AAABXRUJQVlA4IOIAAAAQBwCdASo8ACgAPl0ijUWjoiEdXmQAOAXEsgBnF/uGG2q/iA6AHPqgwah4RSQmzUwgvvBVCReJlkKHkzt8z0rokAD+/W5iP/sF1L9DIt8TM1VTX/9Hn/xunq/46s/kfkZ0OHb/40nPi//+YAfEtQ3WMz2Q+0Ex4Ld/tNQw25BnIoo2eM1yqL14v/9hFlrfl8gpiIBMiHf42gLF4mOOvY+9klr6/Dh4L/JsP57LzEfAPIMGphvitTIRc05Q96zcd450mMsAjvtXR2HYXQhQjYUwYC/qkg5luFKckqmuY77LYAAA',
+  'Bosnia': 'data:image/webp;base64,UklGRm4CAABXRUJQVlA4IGICAAAwDgCdASo8ACgAPm0wlEakIyIhKqoAgA2JagDOcQA6mqknWfyI5Sce3SA2wHM5dEB1nPoAfqT6Tv7M/BV5S1LA+vYLMu6DM785f87+w/AH+rXo6etX0QDKfDJ+BQhZbLyR/cfHp0XOON05bFU1PVK2afzZ42q9rKogAAD+/KkN6Xd8qUM/78OFBC0X8kb775wP814nqgtmB4SM+SU7wv379dlF+zapKYDsihzP+ekS13Hy4uh+B/VQmACC9nj0rhIM8DShNT21HDcgNuCJ8h8aHfVtHfvf2N/9BG+7yFD5cBJsaHGW+8X9RK+g/JUbI8YIeyzifuj/xfzgmpqP0VIx2tqqYTf3X7oIYTWmHPvAfDq6qDsFaJb95LSiv+SSN/iKBekhnLUOkcF4537GQvCODH+PDhfzQGn/Lk/j6ytzpC//H1lbnT+l6+aYMaJhpjdv7piqC4Bc4O3ojXbUHhuqnH83sdAPussfsQCIgeDCLcCgTyRi1pKa7nL1LjHV88Suzplv9mChLSiOXs8JB/lg88lQP9AAnEk5/3ux2xDdi2yv2bBf7eNhm5NVPcbRVbwSGDW8WKZnj3rP7o9wWmUFyb9eQQ2Vnk3R2fjZwzYt7Zpbu/nP/toxxlRwguPyl+gE5OefKn8P7wzTiX589bfq5ljADsK17AF73826AnD7bHVunt/HLCmOD2sItouxtf7jEmfuI7QwTaswexG+/BBeb/I0oNh6FUqfnQ/zXJn4f+sjRG9tvftzscv+ujv/J1eOHvdcRk1t1r8atyfcm1AhvrsQeZJDDUxN15z/AG84AAAA',
+  'Brazil': 'data:image/webp;base64,UklGRqACAABXRUJQVlA4IJQCAAAQDwCdASo8ACgAPm0ukkWkIqGWqzZIQAbEtgBgh/bAT944yHZXwjh6/KB2gPEj/tnUA8wH8L/m3UA9AD+ydQBz4H7c/BT+3/sAfrbFGzAOwIMCVA9oj6RDCJMprtJgaviaIfLtV67i79wZ3PFg9gK5EK+kIxv8KF+fZ/yUYh4ZrQAA/rhltKZ5RrorLLQPrgk45l00Z//t2f9yAf2QAwzBqvkpAB1tseea3lG4qLphfBDyloxsw0erebPRV2Hz+AUxr0uAoRpHWjFL7KaNbU05pURNPU9cdyYcf/c64Pq5Gb+MWQSq8YZZ357VA64DNkjA8fzNe9z9dXogDis6XwFjoJVC66GUs9f0wXJZGw0rTFdzqfSamsNlEXjeM+Fn8d6A+3JOi8/HofjMLn5oiyzyelsW+KOaV70cgjF23THpSisDTfuSqG1SrfzDZC0/4CihXeaV80WUhBWWN3byuilCN9xxV3aErjTqhTvcr+XpLBJTX5/YaKW+gK5Xxal+7tdOd4gPLcDP1pd5q9mQgdhixgAkabjr6m6JatxKKFgWNEmgUvVCIaAFB6ynFPCIPhixe5D8Ipz/4NWDbAxWf7jCY/+4smxuBq3jlfqanezrmwRm7lKGkKPOzfAXJpI7zbjS/MLuM8uny4NN+Y4M/qR2StM4mvjEPUHNu1KyVmM/7vgk1F3ePGJXMZK2kyJPLJunqp2xt7qJnExF2stW8dE1chC/TiZAkxCbnMuxmNK05CJedEADGXAHDo0BSGfxKxvlVGIfsHmu17TnjmNUvpMAgiF/mktY7xnnAUSAlomaYEgKC7+KDtMa8TcTN2z/TFSQMrjFMwetEYYD/gkdAOy2coAT/8+hmOlWP1TqLR/vk9FgAAA=',
+  'Canada': 'data:image/webp;base64,UklGRggCAABXRUJQVlA4IPwBAACwCwCdASo8ACgAPm0wk0WkIyGVXAZ8QAbEswBeTBr2V86ZE3CAfZXXOX6Z5ZB+pPWSt8CnVa0b0CfiEF/nVpHNctO4aZ5KiPYsw8HWbIPAyThTjjFjevGHCe8owMNHCSLK3N2oHIAA/vDHecO7c3wa/qPSeLGAqN/+QH/35A/B9X/ID/gfYTepMvkmD56x+uJ44vl/Ua+A7kKrGsfaA83U9Xv7RH26wh9+HA78mryAqORcSJZLc7i2uz1x3dn97SIpn7vhwKIkdX+JRzWb8OzY//j/pKHXnPu3wMLULUzOfX85eph0zW4ci6LR2d/RiG8S/TseF48OhPf8X4wlehwAL004R6nuCv6vEZZz+rhY3uGFjZ/+O2+0VvAbKL89p/0x7+H9WVmG+3XoO6TjkAUYty1wxYuJ7MGY7WUzbypikFntxdzCDTJNa+95jmeeTTInT6ygRXO1fTt/1sO1Psz4TB0eg2Nqjt51r3/jRZR9XStbCRo3fN/kmn3s80t06EC66rH51eqD/J//79ltI0IcISIEishbXcvUO+XDNLiN1lhYlkyweTPpM8cYpY3/rOCDuGQlRCoKFl+P+d4tWGbbyMR4s65vlgZVLkg2UAxhbEPG0A79ZYBIVAp/tE7HlAYNVW2qO1XDY5AiHs70u96CZ2cHF6NLTU4FAAAA',
+  'Cape Verde': 'data:image/webp;base64,UklGRrABAABXRUJQVlA4IKQBAABQCQCdASo8ACgAPm0ylUekIqIhIquggA2JZADJBCR6BJlv677APuA6WD+zdID9d/W60wDntfZk8ncmdSTwzBH9O6MxW3WFHT8hUIZmdBAAjkSMAAD+899n/5xL6BeAvQ//+FaZF7OiZfAa9dWpH76DQzPXnTHgeOZHJZw0mO3tCw8iub9/rP/vH5f9BLVlQr8a9zuOT/0Pp2osInqOMM+Y5//LJfv/i/ybi9QGDD7GC5mJ32a/NAY19A0Ln+rp6f4UrpSpRUjPCE5xHKbLa3Ec63D8UAKf7hFOJLqDAM8YLdjzynykw5ETy62klOTSg9KlVlBn2D5O6xbImBZ23vmgpU/Cg6YSgMsi5SYn/ogIBD2T5uPzrNrUPxXGcVUV7ltsNpMdPRWHsbp0dC1ptHlKWgfgNuTn9ZqNz6ctMbG/ov6BS5nmXPRQAxjapvtClokwMn5345gEkABLKgnmOgrVtLe7NfMWL/ix+c8a9BLPFtbr0Z9XQUkn6z4gRbLv0JSwm02kD8oebRNrX8aAiQcUsjKXkQDnlyGDPtpQqeHNpQ7gAAA=',
+  'Colombia': 'data:image/webp;base64,UklGRtgAAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSCEAAAABD6AgbQPGv+V2x0ZExIGitm2gMih/tOcA7BnR/8TbdAkAVlA4IJAAAADQBQCdASo8ACgAPm0uk0YkIqGhLUgAgA2JQBofVA/FWWAfwDCAPX/uwADWdNdjGMGQO/C8VUQAAP7zwmf/3nz+3m/t5v+fb//BAVCJcF0jM1BdSfvWXnN0+GJMvMDryodA+YHXlQkdi7QhVdrtCD5L3P8OwAjn5V7kt6x8q9yV4o3kjSqowSeYZ9pa2LGZAAA=',
+  'Croatia': 'data:image/webp;base64,UklGRlQCAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSC4AAAABH9D/iAigaSQp+85OD85YnCGEUF0d0X8BQZEHZgzv0tlRXcBWvcXXOcS/dZUFVlA4IAACAADwCwCdASo8ACgAPm0ulEWkIqIVVgBABsS2AEGFsY9L/GviAPBP/O4gD9c/109+z0AbwB6AHStftz6XLgz/oDD5f8Dy7/QBnNQda2QcDEiG1xuC9c8OR5JfuKUMw8bYvBSGTvxXKooJUAD+9Bi//Vxfo8/IDS3//4UsEFi4OeDH//4E7wJ3QmdCSH2W1su2OZ8eyn7+yDlOpJu6Hr+WDxiEG4gImiz6C8mFeevHbYVP1uGkGFzx/VP4+yLSwK6p0JlbJW5E/58WY8F0MLSbIbCzt83uHc0rf5tv/LNd6zfj4oKgj/PAv/7Ejwmtd6Ta+fEMFDOh37ciy+l3eARD8dfyHAKN6OXDPiQEEWozd22HIGKFfciS7lTKAndS+/+9N7idY7i06ha2GDLEmYW5GRQ+A/50H8f2MtNuRSPqxMKi5oEoJf68ErNk/3pYnaqH7gMG7k6vHW1WPBPO2/C14m536jf/wKHEOf4/T5//x2u0/qZCBvlKT9APwjTqpVMk0bxygALx93//7mhueRV4Cjz9pP+LvFOaU9/oUEGAGnQVSi7L6+zW79kVWIqegRH8B1+rHrO+pSd9V/8Yu0i2ixZRtGCtYXDml2LbzOxX9YM+ARrPvMXacUieo4uH+pY8yZdQllV5A8sb9ipq4BwfgBAaEAVy5KED5m3EGuVaTbTAAA==',
+  'Curaçao': 'data:image/webp;base64,UklGRg4BAABXRUJQVlA4IAIBAABQBwCdASo8ACgAPm0wlkckIyIhLVM5IIANiUAY6/2NQGCZ/wD2/ylK49oD9ABafAVgEqYXxtENQ1gzJK7s2HjkA6qgAP77a3/aD/Yvr9FUefLGgqy7R2YbgtJvU18Gei7vZc1uEgm1eW+QZrOu9SVEof/qhkhD76WfMa2Z5ZkcwRJlvgizx5P896J1n+9f//iW/ofiTfi7+UV3Crk76ySM4/8zJhehXNYOXyuEi+RQ36EeHZU1QBXIjjs4xKwKzf/JkDqLdw6N1J3/b//4phZ3RCD//QHafuGXPN//cjHIGkVm/0bt0wDZeCsNDFRVMv/CFZ94Tg/j4PRX1ja5i1CAAAA=',
+  'Czech Republic': 'data:image/webp;base64,UklGRqABAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSCEAAAABD6AgbQPGv+V2x0ZExIGitm2gMih/tOcA7BnR/8TbdAkAVlA4IFgBAADQCACdASo8ACgAPm0wk0akIyGhMBVYAIANiWYA0Lgby4BuAP1N6f/fK95C/bH0MCBZgifzl+KOqt8aqq80e01u419dcuy4QRLlpOt1qmAAAPw9v8wXMjGuuIZi/13C9IB477b9O1woOqVwEdZK+ZKXZo+fgO8Sj1HSB5f2u/49JxmbOsl3j/Hrs6xK/8o/tFPgv6+nRyOr6mDnkTzdXWuu219p9NWtQf+DpMKG+/VtHJ7jP3xuTIytui/f/CB7Co+0V6znhaEIkEzf+NB+Pf9wZbxFiYv+7Up5f5+duFaha2Y+ybkMCE78LIRHrM38fOfN6m0Ol1IcVqGwrwcPFJcxapb6J2G0r0pAnqzj9SYI14QdrFn/E0WN1JMV3DNF04o6TFuNr5jNsRS0F7HR+sn+V+YPDdwFqR9T24+lIFvSgXt1Sbofeb//6jT4aff/8m/2i96ELXyAAA==',
+  'DR Congo': 'data:image/webp;base64,UklGRqwDAABXRUJQVlA4IKADAABwFACdASo8ACgAPmUmkEWkIiGarP4AQAZEtgBAtY7fIvxm9lmk/xn71fkd8AM4U9qv1XSA8wD9B/6P+Xf9E7gHmA/h38r/U/sAegB/df9f1gHoQfsB6XX7GfBB+0f7AfAB/K/7Z/07za+ySII8V/ZsdVagpnHjQ+nvRa/34qGO2CboLCLqxI34bDeWY/7VaGuvDLtNpIC9r7oUv+DT3zGj//+R7sDufsdFwiyoAP7LS3TRaCn3qDeLcfPkPoFTiHna3gY4WesMalVHKGw2rv0GZmduKRWGIWDdjCa3menbvvhr0x6vJ4Yf/+2gehEEyhgUgQIv6vCHvT4Uh6vzuyd87EHbTF///69GVZyI1u/4tMtFWsbMzw1nEFahxUjnsHicdrikTn/M1baxwFKmApYmWBxfECZln38L5sGTGxRtStk3CcbU77SXdHRl03TZMoYgJ2C29bferFjdL6A1XCijTQiHYPiRbY/ggEoN7orsCZAa5yiFbgmBg1TIRxqzWkQGLGwMYeIuVL/q63rGTK+wnz077YVF+e0BLfu4cC0BR+/Yzoy+ngMrOvRfXwdURvFETbZhrgP99rUT9KB9LCfeCrsrLYyWd5HApQTF/11TKDf29V1DlE+risJp8q1HKCkCw+uKosmm9xIUWa1H5XfnQjMowppRxqy0hf/8YDu8pllk/IuiS+8rm/VstfK8GlZDycQUQjHwH/4nFu9w3/FFrbzdAjEWvs1Eqpu3vinEAcA66/c7nLHnjpnwK65ndzFSxHd4F61/3PVXKdnOTD47LNG1Ptau8q6aL9k/1JWQAUgKI/bZbsZBX5xlu4jk02HqPiV3ij/GXe2RiHibMyL34FbGmjdobvLOXQePraEZJ4WiL1VqNfElgVId4aCX3dThaPFz26R664+szoHmAm9I+4NYWPWFaaCprJ0jPofXxcY+yZE04uu4NgMiuIxxlcuobuLIMRnCMkob+ffpOw5ged/TWn9rD7IT6SAJ7e9f3FyVS7sq4v2B4mD3DfCma3n2/zW9L1meTNCYMZxLmgYwrr+NPtnN3T/Q79D+P4yn7Kfuu2BjToYwEXdH+LhVkxr+2Fdts2U6yyvgqO1d4EP8Gavm5wmJSuh/7P1ILk2pEhLcvilaSfls8p4FFgom6+JtCMO3QvNvklHev/f2nLG6X9KkNTywSVGTAIqdCD4yLMEH9OP7aOmnc+s+XXyMdFVAIZ+anXUIOA50QAAAAAAA',
+  'Ecuador': 'data:image/webp;base64,UklGRvYBAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSBQAAAABD9D/iAgQadt07P6VH0b0PwL2G1ZQOCC8AQAAUAsAnQEqPAAoAD5tLpNGJCKhoTK0mACADYlmAMRd0X5nrNnQPw55WveLwl/gGIA/UD9mffd0wDniP2A+Cr9ovSIuUpsw3KgTTRWWjj3+we+TtdeDCNx66SgyGd8NOjtLc6EAAP71z79/qu/qu/qvd/xCkL5/j/JlzdnYjIhRTywDuWTMp/Ib8OanJqqfjwZPYZ9KTpdcxh/5VsL6bvmZJEp7KrZzXOwz8I4loK1jwHg4Djntw09Wz6RiVk+7ndv4habQy0EFBJzFCvedkqCA5qn5aPy/Rw0Qc+L+tnRMnPNIjynmfmkR5T2Z8niarVRI4q8XJV5A32/oZWmxt/QyuHj/FPGf4XjRGN98Mn4UByTbj3v/6kz6MQj7pqKYjNfKaDBlsbMzw8za5SrnNkC/tCw210pbHtf8lR91//LOedHcyXf05JXfIM9+k9C/AlvFYa+YeTYvnMPLDFftGLDhm1T/TTf8DRD6L32rTbfl2VVJFqGpwJtYHUDA//C5tzxO/RwfELP4TsZ3S1dZKin+uVDWVH3dcs/kYsAha52c+Ew6OAofln/MjqdGYKUMjsaZwfDUrukqSUOSAAAA',
+  'Egypt': 'data:image/webp;base64,UklGRgwBAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSBcAAAABF/D+/4iIgkjbpnN+//Aoov8RANiRAABWUDggzgAAAPAFAJ0BKjwAKAA+aSyTRaQiohgFVEAGhKAM9hAAAnLDf/FF+5OCaoYwsF7WJyT42ISM9HdYxE1AAP70GL/7/b/tPozx+cO7NEVLBGt/7g4//ucD//FDv3h/ZxuvoGf5J/s41PgUThkfpBbNMpOQ6DiHSh//cQ/70mQeq1r6reGhbA4BPWXQxZ9+oBOL32tp4MCw7P/z/B+tdMm7zb31mhbwxd20CSw7Wv4z5PhB3jxiCod5W19aV+fa//f/+Wx3soPEwqiHEArUQDMAAAAA',
+  'England': 'data:image/webp;base64,UklGRhABAABXRUJQVlA4IAQBAADQCQCdASo8ACgAPmEgjkWkIaEb/xwAQAYEsgBkhoAaAD5QKcB8gG//50B/K9UA9AD9ACcZ/wA43AFkqNoDn8B4BjEpZHru+yy9I0StpVgE6jDStHhCXAAA/v837NH66NEwDSee/2ElC0AjGuK2na25Jd/V6Lg43eGcVyHfld/TaRH9JVxlk9gCHF5ITo5Y3M0C8/RM0BiwFOjRoxPMexYsTzHUQ7OD/+NFzSTRrmgp/c4H1dFn/84wwaIHVMVut89ZAzH+q/+bHlgEecAgXM9W1BT4RhXId/XPB6nZ7prlG3BO2D0m6wCtpIWty4Uv3hLfVx2ycmmb8/FmVtH1KrNO/0sAAA==',
+  'France': 'data:image/webp;base64,UklGRooAAABXRUJQVlA4IH4AAAAQBQCdASo8ACgAPmkokEWkIqGZVABABoSgDPJQA0ErK/wK5apohvFCPwG2YY3Yk0CAAP74tRf5mj8Xfi734+UH1FUfi1GH/0K7HjCHWbCckvusZjyW6v+Gb/8M6vtgtHKIGziiRYf/vm9f37QZdopwSW7OB0IqY8gUmiAAAAA=',
+  'Germany': 'data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAACQBQCdASo8ACgAPmUoj0WkIqEapABABkSxAGP/cB/gMJA/VUCcsOACHZezFWoUtcyjd64/wAD+/EO2tdikJG7Yt0p/11fIs19+xq2BpgJ54VjALLI6/eSjh7r/BLQr0o6D2/2WxZ/UdRXrvLN3KEDdoCaAxIu/YAAAAA==',
+  'Ghana': 'data:image/webp;base64,UklGRmQBAABXRUJQVlA4IFgBAABQCQCdASo8ACgAPm0skkWkIqGaqgQAQAbEswBmf1r/AD8bt9LaQP6riAP0U/UD37LJeZoBSo0e2UXWaCPygFyoq5fenX7Is6VM0gHHUOTyrd4eSgD+93F+/MU9sAkH/8Wd1TjRkKtYcOwv/+QH/kB8ssZjH3Dc1kRfk4wEl/0t/jrzmUm4s3FzjmD0CQGol1DYdwuE7ntRuap+/ZyZGI2Q3Ig/bqPGABsM+cfXqutosbpPmjq60sf4m3+35+XzsOJK0pSs/VUVchsy69/D7vMheD6RpNNIjDvamNqD43nnzkfRhY/j+5vhjefKGGeQ+Jou3/BZYwTzcmF83fXooUVgC0aZTwqAUXOLAyG+H9BLkR/u4d7Br5J8wI8sY5567mP2/N2X46UePy/AlHk7vHrA0yf9y75A96XyvSBFy1kAMvtbeIGndoW6Pt0qOKMLdYSBVcQTgAAAAA==',
+  'Haiti': 'data:image/webp;base64,UklGRjoBAABXRUJQVlA4IC4BAACwCQCdASo8ACgAPm0uk0YkIqGhMrSYAIANiUAZvf7vKPyM/GboA9s+5tod/kGIA8//o/9Jm/1X+A+DAlSpNSMoxPW/yVeK/gSQIC2tg7leGey45phEAAD++ZNv/+t/0DOgkP+4TQC36P8vr/0P+LQHO+uD2SDa53oi9brFWDtyp8eXMySh3PiN8ExE7pP7ArgbUiDeYiyrx9nxWQ/ZOQeS4ycg+l2TbYZL9rCI9qxsMP6+Of1v1vhpXqb2n5hC5HpP2byuItHoq9X34NGOnQC1TGWDfmmTdeI4DX96/7j0gv76qSDc+f7RWzq0hFWC9G1yXfa2XkXz4lUx8JvnU+PPbgkGr+jxV/PpQtGifYeYDiLn8cMzSGXDe8+8TdsNbSl/M+mAsW4nKG9GOAAAAA==',
+  'Iran': 'data:image/webp;base64,UklGRl4BAABXRUJQVlA4IFIBAACQBwCdASo8ACgAPm0skUWkIqGaqgQAQAbEsQBlsoAaFWTif5I5K1x30B/Kq/ACtNwbZBDJlu3o9Ikhv+AUsp9J0YpsSIAA/pxyCveX++3Pd7/BRefGUVkgnT6DzLkdHx3H+jD/7Pvvzl2Z1FKBs3uKmyWxkvjTlArxBSQqpqhMoxrwHCyE9r6uoCLgdgaaKnqIKA4xdFCxJnTm7U7l2N/vyHJ5RhoifRHOgar1LfmmrwQDYgn9g+Nt8bzWB0WQUaif+oY/DVD37bhmwaFBJs8ZistXmsBHF1JNAWpGdd7938BgzUwKKtpvRs/s3ajO0zJdyk1E55RoK5LT1PPpAH7P+27qqA/BtAdnvCorVYmMoxdSYFoGvVthCu3i24h0nKkxVhqN7yuoDh7DIgcC54QXgkmm3iR+VcKuPIrcA/EhbfDN7i3EgWD/kiRtLWAhgAAAAA==',
+  'Iraq': 'data:image/webp;base64,UklGRsABAABXRUJQVlA4ILQBAADwCACdASo8ACgAPm0ukkWkIqGaqQQAQAbEoA0gsgHrtsWN8W/rssq1l3/geYD5u9E4mmttebdneTuYHIiZt/ndrrLhjoEIOs55IP5MYIh6AAD+9oCP/fIeQ9Q7xf/8gx/oa+w3uTcV/UZf/+Whf/5aF//cKH/4NfNuP/W8f/Br5txenmU2vDOeh5IRzWMN/5qdHaohI3SbnWkrQodWzUz/XEQZ9zOdJF+45DEhdiQgU+GfB2Nh4/nB4r2VuA9984H9Dr+P2q4GQ2zacf0jYh2l43AXX8Bwi01LE/1kaJ1KP/JnyrSQKb8Rsrfv/YatvRz9eKiDnCEj5N7/0dw+82fu0r4pXnpuBGWV8dnarNEBr4lGTBB2+2zhGZki+4w+TX0Q7NkgC6JVjkq9pEfpxh/a0z8jA9HQ9Y6IPM2r9K6nspBsHzd7P/6sQf02uwCNvO0QbxhUv0bwVtbi1/WIpn0V55UiG5VEqb040Dpci66o9nq9P2e5D/ZaemE+hiOoZ5Sqpwf9LLaUKc+oRHy8tt7LgLg1LmaigMm4e017uS8obBM9t3sxiigKVzt3gvawvyvCAAAA',
+  'Ivory Coast': 'data:image/webp;base64,UklGRrwAAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSBUAAAABD9D/iAiQCUNMC3H1v5wR/Q9q4TcAVlA4IIAAAABwBgCdASo8ACgAPmkokEW/oqGZVAH4BoSxAGew4H8A/ADTAfhL+FdKAq//cAAN6vcuNnRBfuhc7GUyJAAA/u3s/G0ra6/7Th3IWh3wbP3lDnPf3koOXaf3koQPmVmhbU3e8Cx7/2DJW/aapMw6vKEy2QutnVk7Sbhe7I1V3mkAAA==',
+  'Japan': 'data:image/webp;base64,UklGRioBAABXRUJQVlA4IB4BAABwBgCdASo8ACgAPm0uk0WkIqGYDVSsQAbEsQAQgB0mxXge2yYA4E3/0NyrGPwMCZ30R94vvlEfIgdgeQAA/vz0JKX+5fK84U4ePSXCy6spebi6pepBLiwulwk/HeP2//2v/sUX8SiqYp06D//qgO9BvEO/bQRpukj3tQlOFJO0XiEUgvhAbLf2rzxnL/7p+2B+f/+vKzm+m6RVbfz/9XfkiHEmAoLsGT2rFUxID3gJ6W67kDDStWR02eaG4DcXD0megjUMHuo9jDnnYLQv5/6P8uNbY6EqaAG/p+9u+iBX6h6YP6aY779SXFOTEkbzQzmMAwb0HTDdbbaYU/R6rLKngE1DH1ACq/wZHhz3/NZRy2LdNhJdocQ9HeLoAAAA',
+  'Jordan': 'data:image/webp;base64,UklGRpoBAABXRUJQVlA4II4BAAAQCwCdASo8ACgAPm0skkWkIqGZWk2YQAbEswBkhoAa8VaruIP1uxIn8l9wG8AbRX+zOWAegB5XP7M/Cr+1XoREzID/H0Fk9qcCw4/4ESDokSt4yj51DxmCxJBwVGYgiiEgAP76CrWqHaBrxzqxud6dm/f9VSgG1U4L36LsreS6S1FbErWGNDiuuP/2n8rIUBJs7agPvSb7dl6f+QHC3Zp2dgj4Zuz+PuOqf+AOEDf5rZFRBvLVg/H8h/YHYAJtKjn0DxHyS6+rwRNmUap1KeNN7LN7Hm2ahaRnmsG5pjQ0WPUu5oK5/31tEOHTZLtp4kOB/0gM9iw6LhE+aM3lz7/Np3zoJU55spTvcyngl1hTKmRduOwSvBSfy5YV/H3+KavMFHzXH/NWm6EiGQEQOccHilUJMmbs94ILJ3YB/xlN5aqoxGP462nd8v1MzhET4BtZBu+QATzAA+UhfbrO4oKYby27HF1v8Nad+XFbcPCdW79wowdQyMoGHPv2t6f+bfWq/S5obvE8D9xNnFAAAA==',
+  'Mexico': 'data:image/webp;base64,UklGRigCAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSFUAAAABYNvadhOvQNwW08dlnE0YIC1k6euVhF8jRcQEiHqyzt91j9rbZqxEfoHtmbVIxDRBRiIwJQob+GD5h4rEh4JEIqYJTbaD7Z6Jstfa3Nb3jb6tVFcKAFZQOCCsAQAA0AkAnQEqPAAoAD5tKpBFpCKhmVpPMEAGxLMAZXOP//L//28415mVlmPwuVJlAM3e3E/EJIsgmHn/yEdlj7090Pha9gIiVCf7tkI/xGujVgRUN9Blr1kAAP76DvU5+SRSy94J629cy8s4BYX/8W137Gv2Nb6v+eC/1XsxD9WqwEPr5hmFyzn6es5INMyzZemJmCdPoWcHWt7u/g0K1H3vkv/PP9klQEYp1/GV0ctNpJ6kP8vGXZWc3N/+lo0iGVOCJ+a1BIdpUnaWLn3qzD3WlRaW2Kubksy4wr43MGI+gYrKUe0qw5Fl50pgT0lfHyEBhv4z1UZkONBhNMZx3eBeFsWKZyvc9SYE+OXLLVGNSwQ2WGPBVQ+0HV2fRSVotRRIQqO+dDW2O5JYEXOauHzqgDM11UjybawnLEwB6fMa+O3Ixi2CTdVOxIOmxGvAwfKZWQsOnsxMmSTcHttw44ws20UDp9x4TPHSaFTLw6EclcH/gYfrvqcHuUuhrM7M2xBvzFjxr2IVniSD1PozNX0o/AHlMNtctkEt/LPKAvx4+aMjOrG7G2gYY2bF+gA=',
+  'Morocco': 'data:image/webp;base64,UklGRrIAAABXRUJQVlA4IKYAAADQBQCdASo8ACgAPm00lUckIyIhKAnIgA2JQBpUA09VTwBvFf7K+kQBEDofP4qdoZe5yF0uuhoAAP7w+iv/Wx35WAH//Anf8Ka/wpr/gAhCzYkKyTmo/lFj7jj1ykgaSFAY0shV5F5ztO8AtK5WXS6dbGNPmyla/Gf/nWTfKyuix4jOMnOZUpK5sJOE/Dwh+Lf9VYQ4//pOOeuRrFzPf/dY2ZAAAAAA',
+  'Netherlands': 'data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAADwBACdASo8ACgAPmUokEWkIqGapABABkSgDL3QAdoAB3a21RPTd83drZtJb+TtVwAA/vVkrP0/v/HfQXtpJw7s0IMR/P9cB//zgP/HCd/8nG668FI/k4uL4C8YV3Nf8++IVaE8DK72X/M5Rj+sVibldl9tNPC7EUnjFLgQAAAAAA==',
+  'New Zealand': 'data:image/webp;base64,UklGRvwCAABXRUJQVlA4IPACAADQDwCdASo8ACgAPm0ukkakIiGhKrgM+IANiWwAqo+cxofEcqXkB+GvQY6QHmA6AHlAdYB6DHlgexH+3fpaXNX8GufdPYvu+Zi3gYYKYZ5EvoX2Bf03/1HrHesb9gPYgChO9CP/KVrrT/5MFIGi15GQPeg8vS79HK26tNlzc5uB62egkFgXQAAA/rarzElIbTVAPXbn3peCjdXAG7gEVvdCFOKHxOCdHec/h04G//BCy4D9ob5UKlTynCkz/KnqkcKUsP15Dp6cUmAZ7cacm/zF9iAv8KS3LU0H93mAisxG7A2i12AdPPpkMH/gml8o0XluozKgsdzSlN+aBIAcVVD7t3rEodeNlijaxf/KIM4/An16Uryb/WQnrfupITehlXmP/4NrX1xycsKmwWZ0gr5QXfFHzVUXHknaJVIv/JaIqb7/Ifdo7K/+hLTcw/aB5jNwGj4iNDTQKbOFN/7cmMutf2i/heRgPHQlxptl7fgiBBT/Ip/sa//+0G1Bcm8HjP7e5QGkvoFDJKtIGY/VnOe7H4U4u6JLxS8wPFdmCL9olc+bFZyoFTcBQB4N4251f+JA4OpHX0z/Eps+ZH9h8ghwXHO8wZNqKU8wXovb0K5jaYdPctplzZExVP0VLvvlTpRa7Y0IQDa7LHXHH7p7Ihu5COkzPDx4+RUQzT29B9PE33W3QZPtnwIm4JR72/W/XO5Km5P+qPmO53m/y50AcKZkMio+vtr9H8BVxFzXpusBt1kq+kmyY2trw6fPeD3CEDZuzc04yUzln0m3XJcZ9OeLpcgf/mQHvN4p9I76/8VX5Pzhb/aMF8lX0kansZIoXeXsfeTngYcsNlMF2EyBKn3KvaQyAHm8xuRCPMMP9iYjcJd8TZb8BI2mcfqDltSy74t0JF4kJFyp/3aysKE1Cp9qk3e6E8fHkT25O1DWaNxWg7er4t6TUClJuzqrHE4l2UD0H1ToeQoy+MFMglquAnkFikmp72Yu3fTI1u7nt/YAAA==',
+  'Norway': 'data:image/webp;base64,UklGRo4BAABXRUJQVlA4IIIBAACwCQCdASo8ACgAPm0sk0WkIqGZWk2YQAbEswBkC+0/p9e+UCnAehzmxfKk/WbmAPeGbdWdM/wAp0AT0fKcRERCG6AwWhxuwlJOn3BXx4AcMa/g986QAAD+2MT+HNq4b18d0XXf+/9R8459k0//30A8sM+322+ODb/TTeMyTSo7xd5L/5FefOhmy+LLX/x6tnK4eTi05/dpIGwLwRkEBain6iyq/K3TYr96QnZDP1/UtZ37lV8LLnGPGX9RgFe5uuvl6Wrav01r9J3g5655fPn750ARjiG+NWvn4hGM6K3R3l9wQpXkXvL3oPPidKNtdPzZmkZaaC5+L1+Sas3+4d9/sz0Se/zn/0zuIPwT1+qnDuJNoO17AZRTYLCWUynjg2/9+QS5RLcgtdqr+SMsRFBnriP2/AVr5tQwPA6G0aThp5tQtekvmAhNwSxNZ736jnNDW/MzEsL7QZh/gFICZ+fB42WH0ITD2eiLQmBRO6C2gKV2+CO0QKqQ4gteABXoQ0CgAA==',
+  'Panama': 'data:image/webp;base64,UklGRi4CAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSC8AAAABR2AgbRv/lrf9sRERwclzUBNJknJ8PuDBv8sN/6OI/k/A7YI6YYNfV4IMxPSrAABWUDgg2AEAAJALAJ0BKjwAKAA+YSqPRaQioZv8dABABgS0AGaCHL9v3jiqTRWoDzmf5X0M3WS+gB+sHpefrl8G/+XcKtVZM5rzR6K/UrFvrk85ccq/pjaAJ6NyCClOmDd/POu3w9aAqWvhUkwAAP7+k7arqaTV45T8QsnuhB/hb8AA/Pe1uP1OWJxi/TPU5eMPp1tqzs9o48N+/Qih76Tc19J/C/zVLQsnOu/7AjZdtb8jsP/p4Yf/411gGTSuZ/XOrffmPvPxiRbloJ4tv5LcsnZmu2sNkygiJ3gXDvjvzgjYARvcF7hPKP+1/6MCzErlad/owLMTNxYimBUregDjhboH+QxdkH/pjr/L/+Zzf9RxM8+P/UcTP+zgfjHvaIn0wCstHIz6BDxU7ZDYT/36cef+0lIcamTCYeS8/x+1H84Mt2IGVtRphuHTLV+uosHa/ucfSTv4NexiWNvJ+g+ucoXDUl/k+InS2OpT/rTVUUe3wJF4qbAIKBVH5HTGc5/3TMVPdCk/D881wTygkroHAwCPgSSkry0sIP8OE+NVcwAz8It/VCA06+O7Qvf/xpb/2aOX5p/WcwsIFkheuENX0D3+6Ax3UR8v/Auazoxo+z6INRAYIj1Xaz54x5CMYAA=',
+  'Paraguay': 'data:image/webp;base64,UklGRhwCAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSFgAAAABYBPbVpxfU1HhMunxgQKwkD35KEDRNk/Aq5g0ETEB4oJqJlQNTmwBbbEedZBW+GsMkI5xZvBA55f+Cj6mb34pk26js/SxrWidtGExN2hvI8anmAhj8kYAVlA4IJ4BAACwCgCdASo8ACgAPmEmj0WkIiGarf4AQAYEtABS8uBr/0a+3YP7JLBgPWiUnVJjC90tk1gxvAWyOq/AsBpKl0NdqW9f7ydTkNMB0SjJU2KTVDFMphrN94vZhoWdI5CgAP70xcXu42HDe/Ugg/W5KauQPvLv8DzaxcQpP7T7nvlfPRqW/ocYz8TZYMt7k/+118O5P5ytfN4rFIGgYyMxU7s4GpBWTpha4vulXIQOXsU6Yx4kvkR/lmFjHUGsJEQFhyoN+9rB7OPzyn90P2Rp/BygAi7DZ1uCHbBic1NYoGp+cMfBUkRAfsqihVo6p//YJsQ+dS5d07bqMb75UNZeiZuV/vwvyM7olnE4Il4O37yfg5ty+wfErOkLAQT+JrpGqrPmtucvOPUMSZoFPIxftMdRGGWF8cZbhvfCJY6tH72fMfb4WF6ndtE+QChgvGSJj4miM3cXTPIeB3j7x1mUy2VYTr7V/IX6IdiW6f3iFaCMNdv4o+Xu0LPNtCRBAusD2eKyNL6HvqI3TC5ORjp2QVH00QZtltT2BvERQ7+swAA=',
+  'Portugal': 'data:image/webp;base64,UklGRt4BAABXRUJQVlA4INIBAACQCgCdASo8ACgAPm0ulEekIiIhKBVbiIANiWoAyBOQ9AP1V5jWgDmAP1A65LqAPQA6SP9rvSOMAEylzoBbeZSr60IJuPyZcrMpCoD5kT1zfkHvGbBGSTpEuUIoFmAA/vm8LWJ3xjgKrbh+oMAxL/82B3V4I2o/2YbWhki+vdhfrbgyyFUFK0u4Bf/fGZhsahYFhrwxYWL8eqsiILDYtD/ifMxy9OljtCU2z/Nb/jc70P+PXA7ILbmSAfYEX/+jjTDvunkXiD1f+JQ+FaFBYnXJWGQlOciiHWw9zKFa44n4bs/pPAozOyxz2F1uw5erNw7rImjw4keAiPhMGsIll3INs78bAHhadMe5POF9CZtXN38YOnkjbBWX1jy5Txe+wA4HN2R2kAMX9zvb5NNnB6+YXkzipBvZhdfWoXeNR98VTIru6M3z/gdNXFJgJAOl7IwDYxKW6wDjmxLLmXlpzX6oAbv21l8By8ey1dtU5quFClBp7JNOZzUn30Py8lKURICduDUdbBOZ8UIgbFh/k7rFWdg6609VX+8mvHzgfewUd3Bj+lrdVYHYemSdZKWFyQ+pdprYTgLcTfasWumu4SDASbqwD4LRJI7v/U0n+lIAAAAA',
+  'Qatar': 'data:image/webp;base64,UklGRiABAABXRUJQVlA4IBQBAABQBgCdASo8ACgAPm02lkekIyIhKBqo4IANiWUAB0sc308V+oBumZKDeSPhphYyjpBty80Mql2xjp+oAAD+/Ett0wmKineadCYoY+2NUZH39PlDfpFBi2FOvOwzXMUItzx1OFj9vsJdcs0/VaSDnxPoHct4O1+rfxHn+DJt9GvHCN/zkc/8asqxBiO3/3hfwZb/v+3f5Rp1OGpafeAzslTbpduJdsjfybYWtWxc1SC8CNxTiuEP1W9mYEbVdt09fv8z6zNX/N/P2PSq83XWXf5nP79ScwYlrUzp2qP7ZcoZRWVFghSJpVGon/TcevpgSxoHfDize2G/8cr9cP+pKalcr8I+trokyIOLeZH3qMAM2sCAAAA=',
+  'Saudi Arabia': 'data:image/webp;base64,UklGRroBAABXRUJQVlA4IK4BAADwCACdASo8ACgAPm0wlEckIqIhLVZoAIANiUAaAXxvdGVt2TGuQDPBhgsW/nj5z9QAeNBxcLdN4GfZLo8bRApogbQYN1E5U4WGby1D2engAAD+6LHbcIBBVXfwkgr4v/421mjYv//U4/8nH/k4/rRTjwcp/gBEbybXyWR+mrCYB06AIiWkGetoUwRAJuQoruHc5jubI8CCQRz67DnnTqVDX97TRLtuAjJCrlPklfDanErhVsuHrLapDmY1wpdEAfiCmZ1ynx9P1PStcZOYlOo5Uih1LhhfjhfEeU/3y2GRk+lCKDTa0P/XtcceXrHj3raaAc6GifCiOTKh7mQVOhNByWPkaJsw4xtQ7CRwEPks5PGqej2Oucf1Dt8q8/FsnULvCzjZzY0lcGZ8Wddpmbj2XNsiobSrVOoG9vWTMnYGa54MrrADtT6Yf3Z5TnXbmP8Kc2N06AjxnllUvMRVNKvzd7YmZ9qdzhUzsKTYsRhVvy9H79NalYZbbT8jAYcO9AjoWDyJQqbvkuG2y2gIoK9SWi3ieWRpms0X7tX9QslC6G34+ln+Dca8mgAAAAAA',
+  'Scotland': 'data:image/webp;base64,UklGRhAEAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSEwAAAABf6CgbRuGP+Pdno1ERCQfJAiAG2AT21aj/ytyVIAETOADQxjYaGnr5IdXbxPR/wk4l/ubPlq2BC2eY5rOVD0TsmPi9YcyhFEgCRIgVlA4IJ4DAADQFACdASo8ACgAPm0uk0akIqGhKrgMAIANiWwArlVBfgHJfTl7JxCHJJnx6Be4s5P8Af7H3AP0A/Uv1AOgB/GP9B1AP//6gH+O6gD0AOki/bn0ALnhy0CQ77fok/uArgJUxOpfzHip+nvYA/Vj/bdh70WR7lSGytRwoON7JAG6rjLS63KfEl/3AGCZcTh9d+xb6JLkmhDYNK8ArcmxRGyc//q9a/WU2jCRA1vnvngAAP7+wuuZJo8cOa47lLvKKAJ0dUw2ntMtzSXHkv6RjNaN0eARzvgbAvGt+NAD1C/1xVRXepxsxXC1XYQmWlreo9Tm7l2eU/SLSEjUkVdCFyDgyzZGNlv+E/wkLXlcyklqYsjKntO8/ksAlv1xIIygVFes56CmVgJU4IUCZkzlBE96jp602UdPjdiVfUiqSFRzKMxeR/FnCBJ/hMTaWErL+Hlvp6ska/xOwQHzZhGot/0VT4gT2Mz/cxi6Mwo6vfNIOWQGfElWwQvlIzRQzSLXtKg6IyyFN6KGFAxd8CdeDStTQNuFbxRd2qgcqgA/1SYuOOPSzyX1svVMgfIsg/JzLBAYUl0yl5U1Q+E9/VJW6MBGP5Jq5gqFSD2KOcdMBJlzP36drTDmOyphpSDnMBGGzRqHU4Bq/FsAb5UGJZFRg1mtxWHbg6hxWCbvvev4OvXuzi318y7XMWbv+n2GYLeVS5iTcsnD/jsShLwAR1cfJTFZuQ2abMwQJ+zbLTw8fz9aJ0qMVAotU2Q5i7s9vjqovqAkgDApmlLOHys97kkipZZor84+QsnDh2k8QD9IpC5wZrcH76vgaq8am0knhOAPEtkaJHem6f0tb5OUPYuO++/2lWe47QL7hyuVizBgroCY2gwb9JC4GDVIQ+p59lFL6WJ18SUEGGZbQkxYkyheXX0Io9ooS6FmVQjSZxmkiyu+o973zQcTEU/Yx2rveOFTf/JOCB5rrk8z+O9PxFoDD6chpip3wAZkMbgHq025MTpIFZqXdi+px4r0wyKCx4yGxU1Thf5jAeavBm2D/l2w6R7pN6ZBxPL6vInQQSTuzlrzz3YwnPzhO01iRjG4MpnyTm63/NWrneOXPCBTXAg7UKwXdjaQGYAlRsgk1Huo1vgjxquFE9uQUxxMAFUzzFoWvfdPBizrBaWumaKet8Gduz9UCSrNClF4hAqZi9G+QfUYOC8S5eCtuiTOH2+BiSHZD1pksgIqDWYUotrvDfAAAA==',
+  'Senegal': 'data:image/webp;base64,UklGRiIBAABXRUJQVlA4IBYBAACQBwCdASo8ACgAPm0ukkYkIqGhMrSYAIANiWQAzt/W+3fiB+KtAAb//n0e4AaqICtMSHl+Aj8wNEIQogi1KhQpWMFrNAAA/vBsr9WPOAXf/9NC+Kq+k6mjf8c4eTmIv+Pp//Cf33yMP1a3uLpCef+O2SxGpr7ufKPAA+fwDIJK0YKkL+oMfVNFESsAPQ9E3lfumpmR9zT4eiYz9AJejY2f9mPaUt6/m4r49m3qm5/Op3s9yLKX2QOPuHqZ/VJ+8rcpM+s+pL6Txo9kBOdr8QEWB3lqc/O2U1v32gfzyx8cwLFK7StqxkfKUn1eCSEd6AYfnryCPque9ef5lv2w8Icxp+wvgAws/MLTwom2Yp0XvlwZNnAAAA==',
+  'South Africa': 'data:image/webp;base64,UklGRpwDAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSMAAAAABcCVJkqrc/5C4u8vKdOOM8PiOCAZu2zbqLnv7LvcIvmYIic2CBCMyBOSmd2RQBsjUHSMSF604FPDamdANAQ12z46PV4P9Bck4XI2TSxIoMU13PkVIigZ36+LySegQZN5e3BAqvFwQiZLFD6FBsWUzPnPgIW3ZfEhjUmNc+COsUBCJCEx4qWi+mr9no0KMsWBVt2PqYtA8NCoEgWqb/KbW17vwqaFRLIgK4cYqGfq/+gNKeaL3KL/mdM0lp5R9cwZWUDggtgIAAPAQAJ0BKjwAKAA+bSqRRaQiohgMBqhABsS2AGdUF/5z0viXuAe+W/j1n/mdoA/tPUA8wH64euB0gH926gDnuP25+Dn9r/RJ//95MfVa7LvA2qUEBycuaL6O9gb9WP9P1yf2A9j0OyIUPUdpkp+p3WtleiqX4rZ5q4uIrzOnzjz7eEnql1op9VsVHLCRgPprsAD+2O36Io1ewkYyhTBCqXcj9JTImfC5kjuRYyakr5tcTItqSW87vGqNn+XisZ1I7AqcORFxMAmIRLSX04KUH/9QJ4+f5hbLYkgPPr2GmWPRGl+mGu//ncO9erLAFpXHSTwhRj1WAfERdJBvOLFMUKgEf7kSYQx+qiZ/GsQ8MADBxY4QbOYF54GHNiO7FYVi2X1d/0kzkYxWwfxhKZ9SYImaOb/x3/cnPPBDEzGP+jboN9zSzvLnArdgo2bw1V+XHaDp6qkHScLRNGiWNnJ33IgQifrBiPv1rvPDbxZ/QKDhpcZORwNb9bzqwCkSzlZcxaZRzRslSVi8cBx/7mhD7KO7u7v1GoFUOShCqDtfwxcp8C93/cB9JUA/8VjD3PwISsY8jSsyNSxtgpEo/v3MiYNJf43fls/oq9//K7eT2uj9fdYZ7L9S4BYSH++XtrXtfHUgU/s2lPVV3frlTi86JYpZx4YDpcf4Z5V7ki80jh9lP2fV+YZqwwrLHTyidqxGG+XHTT2epIH/dKv1Aouy9zZ5K3L715AY8na6wA7ViRAh3HTth9UCXPEG/eDDVl+4fY0fhoc5LULegthcLafbRlUgRQtekxreMmz0N8q2TRstC9BduyWhLBhO8TlUQ+BKO7GW/j81rXVe2DJwyjrT2kr+IQBfP6OGUvRfGBc0r7UG33fye5u3sf4gqJADXF/T0FyRPM2Lb3WE5NE17F05MHTSYAAAAAA=',
+  'South Korea': 'data:image/webp;base64,UklGRtYCAABXRUJQVlA4IMoCAADQEACdASo8ACgAPm0yl0ekIqIhKBqo4IANiWIAOoA3AH65frNlgHoAeV77IX7XYIB2gV0H9czhP9Y/IfLQOwMV2/vPuA9r/yV/mfcC/lP8x/v35of4Lvk+hn+pqhWMFt72j6+f7dfNm3339iNalA5YrkmNp/Ld4h4tOKW0kyhnAPW7rwkcC8kAjJR0J0Y+QAD++W8TnrO/ybf8PsAbPLwL6uvinqMph90NZvq64pdy+Piky2zJrDddVlVjm17At9xPpn/RQs2JtfkzqyAZnv8SO1pLG8+lze+5jRGgMqdHQ3D0I3Ous3Af8wLNN2WMFoJ7RIKIY+0ADdxthq8a/nEim/9XhIPH/H8udP/+Rcf2j5a3kXBo/1Z+Bkc9GD6MYUJzw/ve7/nJlLAt1HSGvB6Qfk4TkePGoIWuFANhFL1WXRzcxS0qWEaw6HQEEOAQn6ivhoGHVRWp64489k9D1PNv+qOyYopMaq6YRdv4WYBqUrG6OM7FW9NtezDBgtPMmEiguyQGt+9bSNeFAx8r/wcDjVksbqji5arhvfkuJPktaoIIBGN09vKrvD+XwBmLT8eQE/Imm4Ym5cHb4QzFRBYbJIbHC51exVrLU3sRtLN/ZlXrdcbXD7Y5j121ynNpxIco+kMiP7VS4PjlrR3B0kUmUnezjrUNjVuG8/nf/TiXh/83o/q75Yd3VYRuXpZRpe+CGDDE0lSlozDyGBUqMAGqm6mpEdvYDEUR4+Bhwhf5vkIplL5yamBTv4N99yfIzjoDpbqWR/QEw5rV2nnw3RF8bBeva5b/keBcltjCw3IlO2v7/mKqs+Lqs0AeWl7jfHTjsKxRdLnaXLj7d7xldldm/jlfo7eoGryw6rUm31fttFIVB1yfcSB+Ziob6eNd9YMNHJ+kwCHo/I4/0viDk6l2PwhxrWU4u/qnkp6H/JOQtr64yeo0e+lAAAA=',
+  'Spain': 'data:image/webp;base64,UklGRsIBAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSB8AAAABD6AQQADE37nRiIgYKGrbBiqD8kd7DsCeEf1PXeJtAFZQOCB8AQAAcAkAnQEqPAAoAD5tMJVHJCKiISKtEIANiWYAzP/je7cc+kb+gYgD9KP9H/Sffb6P/SqvZlIiIkQBP9XQppP6PCt1NqmtdGyI3Z/VSgFpGQkUIsrAAP76WtkNP/6kEb/4Aklgsi//4tDBr/d7xR17+1yy3J//wpr/hTWDQgffumikljgDJ4DV3DkeKG6fjDGzxUB87efGhHczXMRQ07JtQNNOTIvmT+HB38Vm9anfgwXhlo7j/Vz1WVfmmtUEY1eeT//UKdv/xi/qQ1+RJDtVaoxByEY7MvhPOfW2fvPtn6O4ZVO3P9GTXLX6q824HZ2FudC2nYeK17mwBjd8X2S9LRes6xNQET9BH3J7npw24P1muUFcoYb7bax/RsFJoMXKYv/bl0sMVI45X5NCaVOkcjMKaX3eSfSBh5u2WwXA4qcrhLOS3berm+aZ7BccmJZ62eiNM6z7/r/13EA8jYr3Z+ZdoSIyDhRJ0wZpAUU+QRz98cal6SYWOBtrAAA=',
+  'Sweden': 'data:image/webp;base64,UklGRt4AAABXRUJQVlA4INIAAABQCACdASo8ACgAPmkokEWkIqGZVABABoSxAGWuE32P8IOHdIAfyv8mf4Bv/+cLf13+gZaN+sAMwdl1yTtBRxPBsWYpq/1+yKDnHMAA/vFY3s///nEnk8uIf/82AcyOcvr0keXW4H6mEtSB9WHSxpasfejnpWARVupjRU7T2uE68ytZPa95VgAqUJ8jCQp+kz6Rd7//4XgmWXB1N9Vj/1Tx7OB6ksSfpvdjP+H3gmuROR1dctXaTkSV7YAJduApULh4bSA3bGXJKRNRPFNu34IAAAA=',
+  'Switzerland': 'data:image/webp;base64,UklGRhoBAABXRUJQVlA4IA4BAADQCACdASo8ACgAPl0kjUWjoiEb9AA4BcSzAGgF63zP8IOQM0C7gXgBv/9GwfrMCbYV6xTSU22iNu913PLTtj7muTZGFCa0d8OyUXbsYPAAAP7vUTMWf/xY5OBx//c4HZwOzf4Xq390W0i6j4zwaL+M7Cuwee4q4X4Q3ZKYk4hOd4iEcQb5ZVRjbtX3KlT2CjTPHl77HEyGbqDiSX+i/xJi/zgi2KIVfGj9dCl55c0BZ4euOlMaFcFE2/vVEsTPq3IB9DNOb1Zh7FnDufqVuid3dUfs1hVQS9uFrzfiUfOwkKYhmOf6b9WF8mfA4kHdodEGO7SLDUR1b3v1hYJ3ZnKuJkaCKP02RnybRfAAAAA=',
+  'Tunisia': 'data:image/webp;base64,UklGRrgBAABXRUJQVlA4IKwBAACwCQCdASo8ACgAPm0wlkckIqIhKrgJAIANiWIAlADV6O6RICWAPQA/Wb0xvY1/a70cKOrLHYIDkZ/mLztNMTzGm1DfwyrQckQfXVCzAaJy1VGUlNByQAD+8yw//Qz1ONVv/4yp/xlT/jKn/F2H9c4W2dlDpWvTtti+LFOfHwlGEcLsf8zcH54f1c9/cy/Haw0D+Mj0EK9VgWf3AXVMzwwh/BpTv/mWpKb5iEC/w4S6pWGqozlnz+nRFH1xeJu9vysRDsQBqVrtk/a8tuBOf52Mr/nPKdbHN67Iq26Lq+Wu96bKRXo0DvAXPL5Iv78nRtarh8N3jG9BndsRhcLVJ8zHBtyk0zryzlBJ4Fp2dvqMYZ/TVA5l35u39gkXmr3VshD/TibTJXdcYdv8rg91JU46Kwh5uKCmu/29PpxMAUPt6C6/1mfRVqJoNGHH/MyF/2U9c/4X2kR0lIQnW+s/Nabj9xE8TOIYNHkVuThgm975/mKao8MNmVA95TAbxEh+u1rMXQND2C12I2B4Ig2+unUJYxGP//zWv+YCf741rv/tgvyjPyizM6sOAAAAAA==',
+  'Turkey': 'data:image/webp;base64,UklGRqYBAABXRUJQVlA4IJoBAAAQCQCdASo8ACgAPm00lEakIyIhLVmYAIANiUG2ALPH+/3BPAG8T+TddnmQCmWeO7539gQit/BlvK9UDU5tGK3ZXBxognc5NpGUuCbxulKXjsAA/vKVJTZVtyEm5lo8OXdcxfy5OBHPWLT/+LT860k+r//99AP70A/vQD8Dff6OP39Qllzj+uhGkxGVftOOLzCxCY8oJm//hnFFhts9Sh8KfhFq8SreMTg40a0IZKSA6p8BOZx5c/esf/RsWqIBs3sPt8W2lqzf6fksEGGi+QIGPT4xttOjT5hioDLTRatMdjtlUx5VDb3UT8H6+W5VaaTfa1l7v5oMmmKsy6yzIb54e/bzMKl1bf8hhF+30xkv6vE9p765359ntUM6VuXXvx46J9y78wqJ0rBufsKAjmaJAwi7UueAYuh62quDz0KqqSDZiDR9nlFe+kKXKOteT/0gIAjXNJxeq9buwi/c91r6qPNDHH5j/pVK4XpZH+/wd7Fk3gLiUnUyT7Uaf8YmBFvHUiChof+QT/s1f9FgH9QWkVJwav1mQAAAAA==',
+  'United States': 'data:image/webp;base64,UklGRlwCAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSDcAAAABF9D/iAgoaNtGGsmSHM57fQcgov9kAxSasnFGETKzjZGewYLf+Erw/B5gkh1Y8Pxt/Vayw75RAFZQOCD+AQAA0AsAnQEqPAAoAD5tMJRHJCKiIaq7+ACADYlmAMBcWqZtP/wfN/8OmAV+v/dzP6AU75n5/w/4O1Be1BS1f9H9vns++SP+B7SwMelh1mFdlNm4wEXsl6D1UvHgsjdAAy1OdCIfc6eNEAD+7N/oC7EHO2O5O/rSFfKQTyzp2qAqU0VX2fX1MEHKkoVqlREIhH/p9n8TjI6UyU4uGqSfQU8Dqv1pYjxbcx0m23tBduPBjqAmhiSpa4WHZDOhh8hTQZENnln73U1iw7/ifrt1wj/To3ieayVZKKnVqFUdlUR+xKeMFwpQXpVx3ZG3SvOgZaXV2DH/v2pd3yoAEUfsC7Et/y6x7xsaZXnK7SbLRoRq8ECFAZy+FHnpz6wGqGzzdb/8mZf/BW1R1ocixQwx8+B/stjbsEFqDxQmf7B+Te2pA8q8oW24W48/kltDZcoIE9jX0PAvcQzGmnhdBqq3pzMB0D71QnWF2eZvjnHiaVHUmraubu98vp7sAN6DYXUVXq4UBrUAeb3EGNUt9MNmqvtIcrIz5H+ZN3tiQBvaWNb4UqSH4+qNCnWP/Ls8zfKDCmlRtKKHHU6FSYui1vT0M/6ZYCr3mL90Nqenr3FLviGvVU7DNMX67nb//uNEqeDz+NsfVW3dwZ60FmGnj9ZvGfs9ZvNeIK0i4b6bqS1WxgAA',
+  'Uruguay': 'data:image/webp;base64,UklGRhoCAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSCMAAAABF3D//4iIwiDbSEU7tOP/e4CI/gcA0E+ZdppPneZTp/nUYwBWUDgg0AEAADAKAJ0BKjwAKAA+bTSXSCQioiGiqjCADYlsAMZ0K0Pnu29umEFev1AfbNpDv2S/Sv39dMz3nMlWX+081wW+N2Vm2/h2HUUo0ptpVH7W1Uk/8n8jAnCNn8joAAD+/jBfY29+r8/AFEUJ9Df4oIWH18zIv5eZVVOAHtlE4mNhzakG0CMkkBV8nbjwZb9j9GJRYSpM+mcQR1LQpaYJ62hAN31o0JENMMy/4nEZmT33+8s8MbF0gBuqqMyodi4f/D//yLlg1Vf4Oeq1huCAWvYdC+jAj3bYPiU94L6u19sX3PbGSD03/Jt2debPxfXfzguFdyUkLBbmd9FiBL/yp4LVktAbrwfBXElBV469vCx941K7cCGwGFKAlaBzWucmQg+RM2fnQDAJdZ7tdB3YnTQ9VMvIJu5FT3RSvvt//6HCyh6+SPklyFt3Xf/4ef4Jw4lQ//q79Qm04prEEKwmbddonrDJ5Fnq0LfvDkFmW2//vt8fMmAsRb34K1l37Kh9eCYCqHRz+/wVevknkx5FVBHF5hjiN8rHmXMpkFGAWQgKzQ5hjUn6Cj3A+/uypEd+v+TVz/sHrP/6LmA6o16C8LM+Lug0Qj3NzQoCJiTvDbkUOegA',
+  'Uzbekistan': 'data:image/webp;base64,UklGRkwBAABXRUJQVlA4WAoAAAAQAAAAOwAAJwAAQUxQSBoAAAABF9D/iAgQadvM5E3e6NhwRP+T5NuM5NmNZFZQOCAMAQAAUAYAnQEqPAAoAD5tLJJGJCKhoTVSCACADYlkAM8aoEmgt/8YYDnDhwDw6xbCY2JDLVbEDWhVgT+mpEAA/nGrfRge2NkonpY/qYjRfltfCyfv/wuvUuNPTLq5f7b83yyK9Vb9vN81qzuDuc4uACN2/Td2/78Bb/iRNJpaCiOaQ8sk9///AWhgyd0Nz0NPBFgcv/60myO+b3SVf+jN60P6ouKf0b8QTowX9E04rLgARSFuviMKJPicTjj4USZQ9vgXSfk8VeSEzD0qJhkBf3L3UKXzzQeVjOgOUQkRfdgkYinYGCA/+qugp9zfbOo01xIQPpHdgbD/i/7bDkcff4vvnQrZGg5JlwqIAAAAAA==',
+};
+
 function initDB(){
   // Always ensure admin account exists with correct master password
   var users = ld("users") || [];
@@ -1006,6 +1065,7 @@ function render(){
       else if(t==='matches')main.appendChild(matchesPage());
       else if(t==='sim'&&admin)main.appendChild(simPage());
       else if(t==='users'&&admin)main.appendChild(usersPage());
+      else if(t==='recovery'&&admin)main.appendChild(recoveryPage());
       else if(t==='grand'&&!admin)main.appendChild(grandPage());
       else if(t==='myzone'&&!admin)main.appendChild(myZonePage());
       else if(t==='board')main.appendChild(boardPage());
@@ -1025,7 +1085,7 @@ function render(){
 function makeHeader(){
   var u=S.user,admin=u&&u.role==='admin';
   var tabs=admin
-    ?[['home','🏠 Home'],['matches','⚽ Matches'],['sim','▶ Simulate'],['users','👥 Users'],['board','🏅 Board']]
+    ?[['home','🏠 Home'],['matches','⚽ Matches'],['sim','▶ Simulate'],['users','👥 Users'],['board','🏅 Board'],['recovery','🔧 Recovery']]
     :[['home','🏠 Home'],['matches','⚽ Matches'],['grand','🌍 Grand Picks'],['myzone','📋 My Zone'],['board','🏅 Board'],['profile','👤 Profile']];
   var hdr=document.createElement('div');hdr.className='hdr';
   // Logo
@@ -1469,10 +1529,19 @@ function makeMatchCard(match,opts){
   var teams=h('div',{cls:'teams-row'});
   function teamSide(team,name){
     var td=h('div',{cls:'team-side'});
-    // Large flag — no 2-letter code
-    var flagEl=h('span',{cls:'team-flag'});
-    flagEl.textContent=team.f;
-    td.appendChild(flagEl);
+    // Use real flag image if available, else emoji fallback
+    var flagImg = FLAGS[name];
+    if(flagImg){
+      var flagEl=document.createElement('img');
+      flagEl.src=flagImg;
+      flagEl.alt=name;
+      flagEl.style.cssText='width:60px;height:40px;object-fit:cover;border-radius:4px;display:block;margin:0 auto 4px;box-shadow:0 1px 4px rgba(0,0,0,0.4);';
+      td.appendChild(flagEl);
+    } else {
+      var flagElEmoji=h('span',{cls:'team-flag'});
+      flagElEmoji.textContent=team.f;
+      td.appendChild(flagElEmoji);
+    }
     td.appendChild(h('div',{cls:'team-name'},name));
     // 3-letter FIFA code shown small below name
     var codeEl=h('div',{cls:'team-code'});
@@ -2123,6 +2192,122 @@ function usersPage(){
 // ═══════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// RECOVERY PAGE (Admin only)
+// ═══════════════════════════════════════════════════
+function recoveryPage(){
+  var wrap = h('div', null);
+  wrap.appendChild(h('div',{cls:'section-title'},'🔧 Data Recovery'));
+  wrap.appendChild(h('div',{cls:'section-sub'},'Export, import and sync app data across devices'));
+
+  // ── Status card
+  var statusCard = h('div',{cls:'card',style:{marginBottom:'14px'}});
+  var users = ld('users')||[];
+  var preds = ld('preds')||{};
+  var results = ld('results')||{};
+  var grand = ld('grand')||{};
+  var pub = ld('pub')||[];
+  statusCard.appendChild(h('div',{style:{fontWeight:'700',marginBottom:'10px',color:'var(--acc)'}},'Current Data Status'));
+  [ ['👥 Registered Users', (users.filter(function(u){return u.role!=='admin';})).length],
+    ['📋 Predictions saved', Object.keys(preds).length],
+    ['✅ Results published', Object.keys(results).length],
+    ['🏆 Grand predictions', Object.keys(grand).length],
+    ['📢 Published matches', pub.length],
+    ['☁️ Cloud sync active', _cloudReady ? 'Yes ✓' : 'No ✗']
+  ].forEach(function(row){
+    var r = h('div',{style:{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--b)',fontSize:'13px'}});
+    r.appendChild(h('span',{style:{color:'var(--sub)'}},row[0]));
+    r.appendChild(h('span',{style:{color:'var(--txt)',fontWeight:'600'}},String(row[1])));
+    statusCard.appendChild(r);
+  });
+  wrap.appendChild(statusCard);
+
+  // ── Action buttons card
+  var actCard = h('div',{cls:'card',style:{marginBottom:'14px'}});
+  actCard.appendChild(h('div',{style:{fontWeight:'700',marginBottom:'12px',color:'var(--acc)'}},'Sync Actions'));
+
+  // Push to cloud button
+  var pushBtn = h('button',{cls:'btn btn-primary',style:{width:'100%',marginBottom:'8px'}});
+  pushBtn.textContent = '☁️ Push Local Data → Cloud (Overwrite cloud with this device data)';
+  pushBtn.onclick = function(){
+    pushCloud();
+    toast('✓ Local data pushed to cloud!','#22c55e');
+  };
+  actCard.appendChild(pushBtn);
+
+  // Pull from cloud button
+  var pullBtn = h('button',{cls:'btn btn-outline',style:{width:'100%',marginBottom:'8px'}});
+  pullBtn.textContent = '⬇️ Pull Cloud Data → Local (Overwrite this device with cloud data)';
+  pullBtn.onclick = function(){
+    pullCloud(function(){
+      toast('✓ Cloud data pulled to this device!','#22c55e');
+      ss({});
+    });
+  };
+  actCard.appendChild(pullBtn);
+  wrap.appendChild(actCard);
+
+  // ── Export card
+  var expCard = h('div',{cls:'card',style:{marginBottom:'14px'}});
+  expCard.appendChild(h('div',{style:{fontWeight:'700',marginBottom:'8px',color:'var(--acc)'}},'Export Data (Save backup)'));
+  expCard.appendChild(h('div',{style:{fontSize:'12px',color:'var(--dim)',marginBottom:'10px'}},'Download all app data as a JSON file. Use this to back up or restore data.'));
+  var expBtn = h('button',{cls:'btn btn-success',style:{width:'100%'}});
+  expBtn.textContent = '📥 Download Full Backup (JSON)';
+  expBtn.onclick = function(){
+    var data = {};
+    ['users','preds','results','pub','grand','adminLogs','adminLastSummary'].forEach(function(k){
+      data[k] = ld(k);
+    });
+    var json = JSON.stringify(data, null, 2);
+    var blob = new Blob([json], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'gamechangers-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click(); URL.revokeObjectURL(url);
+    toast('✓ Backup downloaded!','#22c55e');
+  };
+  expCard.appendChild(expBtn);
+  wrap.appendChild(expCard);
+
+  // ── Import card
+  var impCard = h('div',{cls:'card',style:{marginBottom:'14px'}});
+  impCard.appendChild(h('div',{style:{fontWeight:'700',marginBottom:'8px',color:'var(--acc)'}},'Import Data (Restore backup)'));
+  impCard.appendChild(h('div',{style:{fontSize:'12px',color:'var(--dim)',marginBottom:'10px'}},'⚠️ This will REPLACE all current data with the imported file. Use with caution.'));
+  var fileInp = document.createElement('input');
+  fileInp.type = 'file'; fileInp.accept = '.json';
+  fileInp.style.cssText = 'display:block;width:100%;margin-bottom:10px;color:var(--txt);font-size:13px;';
+  var impBtn = h('button',{cls:'btn btn-danger',style:{width:'100%'}});
+  impBtn.textContent = '📤 Import & Restore from JSON file';
+  impBtn.onclick = function(){
+    var file = fileInp.files[0];
+    if(!file){ toast('Please select a JSON file first','#f97316'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var data = JSON.parse(e.target.result);
+        var keys = ['users','preds','results','pub','grand','adminLogs','adminLastSummary'];
+        var restored = 0;
+        keys.forEach(function(k){
+          if(data[k] !== undefined && data[k] !== null){
+            sv(k, data[k]); restored++;
+          }
+        });
+        pushCloud();
+        toast('✓ Restored '+restored+' data sets! Cloud synced.','#22c55e');
+        setTimeout(function(){ ss({}); }, 1000);
+      } catch(err){
+        toast('✗ Invalid JSON file: '+err.message,'#ef4444');
+      }
+    };
+    reader.readAsText(file);
+  };
+  impCard.appendChild(fileInp);
+  impCard.appendChild(impBtn);
+  wrap.appendChild(impCard);
+
+  return wrap;
+}
+
 // Pull cloud data first, then init and render
 var _gcApp = document.getElementById("app");
 if(_gcApp && FIREBASE_URL && FIREBASE_URL.indexOf("PASTE_") < 0){
@@ -2161,9 +2346,15 @@ pullCloud(function(){
   } catch(e){
     console.error("App startup error:", e);
     var app=document.getElementById("app");
-    if(app) app.innerHTML="<div style='padding:20px;color:red;font-family:sans-serif'>"
-      +"<h3>App Error</h3><pre>"+e.message+"</pre>"
-      +"<p>Please hard-refresh the page (Ctrl+Shift+R)</p></div>";
+    if(app){
+      app.removeAttribute('style');
+      app.innerHTML="<div style='padding:30px 20px;color:#fff;font-family:sans-serif;text-align:center;'>"
+        +"<div style='font-size:48px;margin-bottom:16px'>⚠️</div>"
+        +"<div style='color:#f97316;font-size:18px;font-weight:700;margin-bottom:8px'>App Error</div>"
+        +"<div style='color:#aaa;font-size:13px;margin-bottom:16px'>"+e.message+"</div>"
+        +"<button onclick='location.reload()' style='background:#00d4ff;color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;'>Refresh Page</button>"
+        +"</div>";
+    }
   }
 });
 </script>
