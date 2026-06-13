@@ -651,8 +651,70 @@ var PLAYERS=PLAYERS_GK;
 // ═══════════════════════════════════════════════════
 // STORAGE
 // ═══════════════════════════════════════════════════
-function ld(k){try{return JSON.parse(localStorage.getItem("gcwc26_"+k))||null;}catch(e){return null;}}
-function sv(k,v){try{localStorage.setItem("gcwc26_"+k,JSON.stringify(v));}catch(e){}}
+// ── Cloud sync via Firebase Realtime Database ─────────────
+// Paste your Firebase database URL below after setup.
+// Format: https://YOUR-PROJECT-default-rtdb.firebaseio.com
+var FIREBASE_URL = "https://game-changers-171b4-default-rtdb.firebaseio.com";
+var CLOUD_KEYS   = ["users","preds","results","pub","grand","adminLogs","adminLastSummary"];
+var _syncTimer   = null;
+var _cloudReady  = false;
+
+function ld(k){
+  try{return JSON.parse(localStorage.getItem("gcwc26_"+k))||null;}
+  catch(e){return null;}
+}
+function sv(k,v){
+  try{localStorage.setItem("gcwc26_"+k,JSON.stringify(v));}catch(e){}
+  if(_cloudReady && CLOUD_KEYS.indexOf(k)>=0){
+    clearTimeout(_syncTimer);
+    _syncTimer=setTimeout(pushCloud,1000);
+  }
+}
+
+// Pull ALL cloud data into localStorage then call cb()
+function pullCloud(cb){
+  if(!FIREBASE_URL||FIREBASE_URL.indexOf("PASTE_")>=0){_cloudReady=false;if(cb)cb();return;}
+  fetch(FIREBASE_URL+"/gcwc26.json")
+    .then(function(r){
+      if(!r.ok){ console.warn("Firebase HTTP error:",r.status); return null; }
+      return r.json();
+    })
+    .then(function(data){
+      console.log("Firebase pull response:", data===null?"null":typeof data);
+      if(data && typeof data==="object" && !data.error){
+        CLOUD_KEYS.forEach(function(k){
+          if(data[k]!==undefined && data[k]!==null){
+            localStorage.setItem("gcwc26_"+k,JSON.stringify(data[k]));
+          }
+        });
+        console.log("Cloud data loaded ✓");
+      } else if(data && data.error){
+        console.warn("Firebase error:", data.error);
+      }
+      _cloudReady=true;
+      if(cb)cb();
+    })
+    .catch(function(e){
+      console.warn("Cloud pull failed:",e.message);
+      _cloudReady=false;
+      if(cb)cb();
+    });
+}
+
+// Push all data to cloud
+function pushCloud(){
+  if(!_cloudReady||!FIREBASE_URL||FIREBASE_URL.indexOf("PASTE_")>=0)return;
+  var data={};
+  CLOUD_KEYS.forEach(function(k){data[k]=ld(k);});
+  fetch(FIREBASE_URL+"/gcwc26.json",{
+    method:"PUT",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(data)
+  }).then(function(r){
+    if(r.ok)console.log("Cloud synced ✓");
+    else r.text().then(function(t){console.warn("Cloud push failed:",t);});
+  }).catch(function(e){console.warn("Cloud push error:",e.message);});
+}
 function maskEmail(email){
   if(!email||email.indexOf('@')<0)return email;
   var parts=email.split('@');
@@ -920,6 +982,8 @@ function render(){
   Object.values(cdTimers).forEach(clearInterval);
   cdTimers={};
   app.innerHTML='';
+  // Reset any loading screen inline styles
+  app.removeAttribute('style');
   try{
     if(S.pg==='auth'||S.pg==='verify'||S.pg==='forgot'||S.pg==='resetcode'||S.pg==='newpassword'){app.appendChild(authPage());return;}
     var wrap=document.createElement('div');wrap.id='main-wrap';
@@ -2028,10 +2092,49 @@ function usersPage(){
 // ═══════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════
-initDB();render();
-// Check daily summary on load and every 30 minutes
-checkDailySummary();
-setInterval(checkDailySummary, 30 * 60 * 1000);
+// Pull cloud data first, then init and render
+var _gcApp = document.getElementById("app");
+if(_gcApp && FIREBASE_URL && FIREBASE_URL.indexOf("PASTE_") < 0){
+  _gcApp.style.display = "flex";
+  _gcApp.style.flexDirection = "column";
+  _gcApp.style.alignItems = "center";
+  _gcApp.style.justifyContent = "center";
+  _gcApp.style.minHeight = "60vh";
+  _gcApp.style.gap = "16px";
+  var _ball = document.createElement("div");
+  _ball.style.fontSize = "48px";
+  _ball.textContent = "⚽";
+  var _msg = document.createElement("div");
+  _msg.style.color = "var(--acc)";
+  _msg.style.fontSize = "16px";
+  _msg.style.fontWeight = "600";
+  _msg.textContent = "Syncing data...";
+  var _sub = document.createElement("div");
+  _sub.style.color = "var(--dim)";
+  _sub.style.fontSize = "12px";
+  _sub.textContent = "Loading your Game Changers data";
+  _gcApp.appendChild(_ball);
+  _gcApp.appendChild(_msg);
+  _gcApp.appendChild(_sub);
+}
+
+pullCloud(function(){
+  try{
+    initDB();
+    render();
+    checkDailySummary();
+    setInterval(checkDailySummary, 30*60*1000);
+    setInterval(function(){
+      pullCloud(function(){ try{render();}catch(e){console.error("render error:",e);} });
+    }, 60000);
+  } catch(e){
+    console.error("App startup error:", e);
+    var app=document.getElementById("app");
+    if(app) app.innerHTML="<div style='padding:20px;color:red;font-family:sans-serif'>"
+      +"<h3>App Error</h3><pre>"+e.message+"</pre>"
+      +"<p>Please hard-refresh the page (Ctrl+Shift+R)</p></div>";
+  }
+});
 </script>
 </body>
 </html>
