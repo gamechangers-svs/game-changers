@@ -94,7 +94,86 @@ nav button:hover:not(.active){color:var(--txt)}
 .g3{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-@media(max-width:700px){.g4{grid-template-columns:repeat(2,1fr)}.g5{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr}.auth-right{max-width:100%;margin:0 16px 32px;padding:24px 20px}.auth-title{font-size:26px}.main{padding:14px 12px}}
+@media(max-width:700px){.g4{grid-template-columns:repeat(2,1fr)}
+
+/* ── Mobile layout fixes ── */
+@media(max-width:600px){
+  /* App shell */
+  #app{padding:0;}
+  .app-wrap{padding:0 0 80px 0;}
+
+  /* Header */
+  .top-bar{padding:10px 14px;gap:8px;}
+  .top-bar .logo-text{font-size:18px;}
+  .top-nav{gap:4px;}
+  .nav-btn{font-size:10px;padding:5px 8px;}
+
+  /* Hero stats */
+  .hero-stats{gap:12px;padding:12px 0;}
+  .hero-stat-val{font-size:28px;}
+
+  /* Cards */
+  .card{padding:14px 12px;border-radius:12px;}
+  .match-card{padding:14px 12px;}
+
+  /* Teams row */
+  .teams-row{gap:4px;}
+  .team-flag{font-size:32px;}
+  .team-name{font-size:11px;}
+  .vs-text{font-size:18px;}
+
+  /* Buttons */
+  .btn-primary,.btn-outline,.btn-success,.btn-danger,.btn-ghost{
+    font-size:12px;padding:9px 12px;
+  }
+  .btn-sm{font-size:11px;padding:7px 10px;}
+
+  /* Auth screen */
+  .auth-wrap{padding:16px 14px;}
+  .auth-card{padding:20px 16px;border-radius:16px;}
+  .field-input{font-size:16px !important;padding:11px 14px;}
+
+  /* Modal */
+  .modal-box{width:96vw !important;max-width:96vw !important;padding:16px 12px;max-height:90vh;overflow-y:auto;}
+  .opt-btn{font-size:12px;padding:8px 10px;}
+
+  /* Leaderboard table */
+  .lb-table{font-size:12px;}
+  .lb-table td,.lb-table th{padding:7px 6px;}
+
+  /* Tabs */
+  .mode-tabs{margin-bottom:14px;}
+  .mode-tab{font-size:13px;padding:8px 14px;}
+
+  /* Profile */
+  .av-grid{gap:6px;}
+  .av-btn{width:40px;height:40px;font-size:22px;}
+
+  /* Grand predictions */
+  .grand-cat{padding:12px 10px;}
+
+  /* Groups grid */
+  .g4{grid-template-columns:1fr 1fr;}
+  .group-card{padding:12px 10px;}
+}
+
+/* ── Small phones (≤380px) ── */
+@media(max-width:380px){
+  .team-flag{font-size:26px;}
+  .team-name{font-size:10px;}
+  .hero-stat-val{font-size:22px;}
+  .nav-btn{font-size:9px;padding:4px 6px;}
+  .field-input{font-size:15px !important;}
+}
+
+/* ── Auth screen mobile ── */
+@media(max-width:600px){
+  .auth-wrap{flex-direction:column;min-height:unset;}
+  .auth-left{display:none !important;}
+  .auth-right{width:100% !important;padding:24px 16px 32px;}
+  .auth-card{border-radius:0 0 20px 20px;}
+  .modal-box{margin-top:10px;}
+}.g5{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr}.auth-right{max-width:100%;margin:0 16px 32px;padding:24px 20px}.auth-title{font-size:26px}.main{padding:14px 12px}}
 /* ── Match card */
 .match-card{position:relative;overflow:hidden;transition:border-color .2s,background .2s;cursor:default}
 .match-card:hover{background:var(--card2)}
@@ -126,7 +205,7 @@ nav button:hover:not(.active){color:var(--txt)}
 .stag-neg{background:rgba(239,68,68,.1);color:var(--red)}
 .stag-zero{background:rgba(255,255,255,.06);color:var(--sub)}
 /* ── Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:500;display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow-y:auto;backdrop-filter:blur(4px)}
 .modal-box{background:var(--card);border-radius:18px;border:1px solid var(--b2);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 0 60px rgba(0,212,255,.07)}
 .modal-hdr{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--b)}
 .modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--txt)}
@@ -1102,6 +1181,7 @@ function authPage(){
       }
       var avs=['⚽','🏆','🌍','🎯','⭐','🦁','🔥','💎'];
       var nu={id:Date.now().toString(),name:vp2.name,email:vp2.email,password:vp2.password,role:'user',jd:new Date().toISOString().slice(0,10),av:avs[Math.floor(Math.random()*8)],verified:true};
+      nu.email = (nu.email||'').trim().toLowerCase();
       sv('users',[].concat(users,[nu]));
       ss({pg:'app',user:nu,tab:'home',err:'',fd:{},modal:null,verifyPending:null});
       toast('🎉 Welcome to Game Changers, '+vp2.name+'!');
@@ -1147,14 +1227,20 @@ function authPage(){
     var l=document.createElement('label');l.className='field-label';l.textContent=lbl;right.appendChild(l);
     var i=document.createElement('input');i.className='field-input';i.type=type;i.placeholder=ph;i.value=f[key]||'';
     if(autocomplete)i.setAttribute('autocomplete',autocomplete);
-    i.oninput=function(e){var fd=S.fd||{};fd[key]=e.target.value;S.fd=fd;};
+    // Mobile: prevent autocorrect/autocapitalize on email and password fields
+    i.setAttribute('autocorrect','off');
+    i.setAttribute('spellcheck','false');
+    if(type==='email'||type==='password'){
+      i.setAttribute('autocapitalize','off');
+    }
+    i.oninput=function(e){var fd=S.fd||{};fd[key]=e.target.value.trimEnd();S.fd=fd;};
     right.appendChild(i);
     return i;
   }
 
   if(mode==='register') addField('FULL NAME','name','text','Your full name','name');
   addField('EMAIL ADDRESS','email','email','you@example.com','email');
-  var pwdInp=addField('PASSWORD','password','password',mode==='login'?'Your password':'Create a strong password','new-password');
+  var pwdInp=addField('PASSWORD','password','password',mode==='login'?'Your password':'Create a strong password',mode==='login'?'current-password':'new-password');
 
   if(mode==='login'){
     // Forgot password link shown only on login
@@ -1194,11 +1280,11 @@ function authPage(){
     var f2=S.fd||{},users=ld('users')||[];
     if(mode==='login'){
       // Admin master password override - always works regardless of stored password
-      if(f2.email===ADMIN_EMAIL && f2.password===ADMIN_PASSWORD){
+      if((f2.email||'').trim().toLowerCase()===ADMIN_EMAIL.toLowerCase() && (f2.password||'').trim()===ADMIN_PASSWORD){
         var adminU = users.find(function(x){ return x.email===ADMIN_EMAIL; });
         if(adminU){ ss({pg:'app',user:adminU,tab:'home',err:'',fd:{},modal:null}); return; }
       }
-      var u=users.find(function(x){return x.email===f2.email&&x.password===f2.password;});
+      var u=users.find(function(x){return x.email===(f2.email||'').trim().toLowerCase()&&x.password===(f2.password||'').trim();});
       if(!u)return ss({err:'Incorrect email or password. Please try again.'});
       if(u.role!=='admin'&&!u.verified)return ss({err:'Please verify your email before logging in.'});
       ss({pg:'app',user:u,tab:'home',err:'',fd:{},modal:null});
@@ -1346,10 +1432,19 @@ function makeMatchCard(match,opts){
   // Actions
   var arow=h('div',{style:{display:'flex',gap:'7px',marginTop:'8px'}});
   if(!admin&&isP){
-    var pb=btn(isPred?'✏ Edit Prediction':'🔮 Predict Now',isPred?'btn-outline btn-sm':'btn-primary btn-sm',
-      function(){ss({modal:{type:'predict',match:match,answers:Object.assign({},(ld('preds')||{})[S.user.id+'_'+match.id]||{})}});});
-    pb.style.flex='1';
-    arow.appendChild(pb);
+    var matchStarted = Date.now() >= new Date(match.utc).getTime();
+    if(matchStarted){
+      // Match has started — lock predictions
+      var lockMsg=h('div',{style:{textAlign:'center',color:'var(--dim)',fontSize:'11px',padding:'6px 0',flex:'1'}});
+      lockMsg.textContent = isPred ? '🔒 Predicted — Match in progress' : '🔒 Predictions closed — Match started';
+      lockMsg.style.color = isPred ? 'var(--grn)' : 'var(--dim)';
+      arow.appendChild(lockMsg);
+    } else {
+      var pb=btn(isPred?'✏ Edit Prediction':'🔮 Predict Now',isPred?'btn-outline btn-sm':'btn-primary btn-sm',
+        function(){ss({modal:{type:'predict',match:match,answers:Object.assign({},(ld('preds')||{})[S.user.id+'_'+match.id]||{})}});});
+      pb.style.flex='1';
+      arow.appendChild(pb);
+    }
   }
   if(!admin&&!isP){
     var cs=h('div',{style:{textAlign:'center',color:'var(--dim)',fontSize:'11px',padding:'6px 0',flex:'1'}});
